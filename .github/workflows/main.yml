@@ -38,10 +38,19 @@ jobs:
           
           $webUrl = "https://thyo.cloud/api/get-core"
           
-          $body = @{ email =$env:EMAIL; username = $env:RDP_USER; repo =$env:REPO } | ConvertTo-Json
+          # Payload JSON
+          $payload = @{ email =$env:EMAIL; username = $env:RDP_USER; repo =$env:REPO } | ConvertTo-Json
+          
+          # Menggunakan Splatting agar parameter Invoke-RestMethod aman dan bersih dari error gabung teks
+          $requestParams = @{
+            Uri         = $webUrl
+            Method      = 'Post'
+            Body        = $payload
+            ContentType = 'application/json'
+          }
           
           try {
-            $req = Invoke-RestMethod -Uri $webUrl -Method Post -Body$body -ContentType "application/json"
+            $req = Invoke-RestMethod @requestParams
             
             if ($req.success -eq$true) {
               Write-Host "✅ Akses Diterima! Menjalankan Core Engine..."
@@ -50,7 +59,7 @@ jobs:
               # --- KODE GANTI WALLPAPER ---
               try {
                   Write-Host "Mencoba mengatur wallpaper desktop..."
-                  $imageUrl = "https://raw.githubusercontent.com/username/repo/main/wallpaper.jpg"
+                  $imageUrl = "https://raw.githubusercontent.com/username/repo/main/wallpaper.jpg" # Ganti link gambar (.jpg/.png)
                   $outputFile = "$env:TEMP\custom_wallpaper.jpg"
                   
                   Invoke-WebRequest -Uri $imageUrl -OutFile $outputFile$cSource = "using System.Runtime.InteropServices; public class WallpaperSetter { [DllImport(`"user32.dll`", CharSet = CharSet.Auto)] public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni); }"

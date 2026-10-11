@@ -35,17 +35,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Enable Remote Desktop & Fix Firewall
+      - name: Enable Remote Desktop & Fix Firewall (NLA Disabled)
         shell: powershell
         run: |
           # 1. Izinkan Koneksi RDP
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
           
-          # 2. Ubah Network Profile ke Private agar Firewall tidak memblokir Tailscale
+          # 2. Matikan NLA (UserAuthentication = 0) agar layar login muncul di dalam Windows
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
+          
+          # 3. Ubah Network Profile ke Private agar Firewall tidak memblokir Tailscale
           Set-NetConnectionProfile -NetworkCategory Private
           
-          # 3. Buka Port 3389 secara Eksplisit di Windows Firewall
+          # 4. Buka Port 3389 secara Eksplisit di Windows Firewall
           New-NetFirewallRule -DisplayName "Remote Desktop (TCP-In)" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow
 
       - name: Install & Setup Tailscale using WinGet
@@ -100,7 +102,7 @@ jobs:
               Write-Host "Mengunduh dan memasang Foto Profil..."
               $picPath = "C:\profile.png"
               Invoke-WebRequest -Uri $env:PROFILE_PIC_URL -OutFile $picPath
-            $targetDir = "C:\ProgramData\Microsoft\User Account Pictures"
+              $targetDir = "C:\ProgramData\Microsoft\User Account Pictures"
               if (!(Test-Path $targetDir)) { New-Item -Path $targetDir -ItemType Directory -Force }
               Copy-Item $picPath "$targetDir\$env:W_USER.png" -Force
           }
@@ -119,5 +121,5 @@ jobs:
           Write-Host "========================================================" -ForegroundColor Green
           Write-Host "Server akan terus aktif selama 6 jam ke depan..."
           
-          # Menahan agar workflow tidak selesai/mati (berjalan selama 6 jam)
+          # Menahan agar workflow tetap menyala
           Start-Sleep -Seconds 21600

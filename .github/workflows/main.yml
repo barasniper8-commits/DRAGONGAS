@@ -1,4 +1,4 @@
-name: Cloud RDP (Localtonet)
+name: Cloud RDP (Cloudflare TCP)
 
 on:
   workflow_dispatch:
@@ -24,26 +24,22 @@ jobs:
         net localgroup administrators runneradmin /add
         exit 0
 
-    - name: Install & Otentikasi Localtonet
+    - name: Download & Jalankan Cloudflared
       run: |
-        winget install Localtonet.Localtonet --accept-source-agreements --accept-package-agreements --silent
-        localtonet authtoken Xy69Aj4vYi7qgoHtNfLbZD52aw1lxp0zT
-        Start-Sleep -Seconds 5
-
-    - name: Membuka Tunnel RDP (Port 3389)
-      run: |
-        Start-Process -FilePath "localtonet" -ArgumentList "tcp --port 3389" -PassThru
+        Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "cloudflared.exe"
+        Start-Process -FilePath ".\cloudflared.exe" -ArgumentList "tunnel --url tcp://localhost:3389" -RedirectStandardError "cf.log" -PassThru
         Start-Sleep -Seconds 10
 
-    - name: Detail Login RDP
+    - name: Menampilkan Detail Koneksi RDP
       run: |
+        Start-Sleep -Seconds 5
         Write-Host "=================================================="
-        Write-Host " RDP LOCALTONET AKTIF!" -ForegroundColor Green
+        Write-Host " RDP Berhasil Dibuat via Cloudflare!" -ForegroundColor Green
         Write-Host "=================================================="
+        Get-Content cf.log | Select-String "trycloudflare.com"
+        Write-Host "--------------------------------------------------"
         Write-Host " Username : runneradmin"
         Write-Host " Password : Dr4g0n#99`$Xau"
-        Write-Host "--------------------------------------------------"
-        Write-Host " Cek Host & Port RDP di Dashboard Localtonet Anda!"
         Write-Host "=================================================="
 
     - name: Menjaga Sesi RDP Tetap Aktif

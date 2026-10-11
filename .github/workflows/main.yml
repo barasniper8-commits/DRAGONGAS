@@ -19,11 +19,12 @@ jobs:
       run: |
         $pass = "${{ secrets.RDP_PASS }}"
         if ([string]::IsNullOrWhiteSpace($pass)) { 
-            $pass = "Dr4g0n#99$Xau"
-            Write-Host "Menggunakan default password yang kuat: Dr4g0n#99$Xau" -ForegroundColor Yellow
+            $pass = "Dr4g0n#99`$Xau"
+            Write-Host "Menggunakan default password yang kuat: Dr4g0n#99`$Xau" -ForegroundColor Yellow
         }
         net user runneradmin $pass
         net localgroup administrators runneradmin /add
+        exit 0
 
     - name: Mengunduh Ngrok
       run: |
@@ -47,7 +48,7 @@ jobs:
         Write-Host " RDP Berhasil Dibuat!" -ForegroundColor Green
         Write-Host " Alamat Host & Port : $($tcpTunnel.public_url -replace 'tcp://', '')"
         Write-Host " Username           : runneradmin"
-        Write-Host " Password           : (Gunakan secret RDP_PASS Anda atau Dr4g0n#99$Xau)"
+        Write-Host " Password           : (Secret RDP_PASS atau Dr4g0n#99`$Xau)"
         Write-Host "=================================================="
 
     - name: Menjaga Sesi RDP Tetap Aktif

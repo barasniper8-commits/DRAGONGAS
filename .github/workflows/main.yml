@@ -1,83 +1,74 @@
-name: ThyoCloud Personal RDP (Fork)
 
-on:
-  workflow_dispatch:
-    inputs:
-      osChoice:
-        description: 'Pilih Versi Windows Server'
-        required: true
-        type: choice
-        default: 'windows-2022'
-        options:
-          - windows-latest
-          - windows-2025
-          - windows-2022
-      userEmail:
-        description: 'Email yang terdaftar di Web ThyoCloud'
-        required: true
-      customUsername:
-        description: 'Username RDP (Opsional - Default: thyocloud)'
-        required: false
-        default: 'thyocloud'
+# ==========================================
+# ARIANTO RDP - CYBERPUNK NEON THEME
+# Wallpaper Desktop + Account Picture
+# ==========================================
 
-jobs:
-  build-rdp:
-    runs-on: ${{ github.event.inputs.osChoice }}
-    timeout-minutes: 360
+$ErrorActionPreference = "Stop"
 
-    steps:
-      - name: 🚀 Menghubungkan ke ThyoCloud Server Web
-        env:
-          EMAIL: ${{ github.event.inputs.userEmail }}
-          RDP_USER: ${{ github.event.inputs.customUsername }}
-          REPO: ${{ github.event.repository.name }}
-          OS_TYPE: ${{ github.event.inputs.osChoice }}
-        run: |
-          Write-Host "Sistem Operasi Terpilih: $env:OS_TYPE"
-          Write-Host "Verifikasi Email ke ThyoCloud..."
-          
-          $webUrl = "https://thyo.cloud/api/get-core"
-          
-          # Payload JSON
-          $payload = @{ email =$env:EMAIL; username = $env:RDP_USER; repo =$env:REPO } | ConvertTo-Json
-          
-          # Menggunakan Splatting agar parameter Invoke-RestMethod aman dan bersih dari error gabung teks
-          $requestParams = @{
-            Uri         = $webUrl
-            Method      = 'Post'
-            Body        = $payload
-            ContentType = 'application/json'
-          }
-          
-          try {
-            $req = Invoke-RestMethod @requestParams
-            
-            if ($req.success -eq$true) {
-              Write-Host "✅ Akses Diterima! Menjalankan Core Engine..."
-              Invoke-Expression $req.script
+$ThemeDir = Join-Path $env:LOCALAPPDATA "AriantoCyberpunk"
+$WallpaperPath = Join-Path $ThemeDir "wallpaper.jpg"
+$ProfilePicturePath = Join-Path $ThemeDir "profile.jpg"
 
-              # --- KODE GANTI WALLPAPER ---
-              try {
-                  Write-Host "Mencoba mengatur wallpaper desktop..."
-                  $imageUrl = "https://raw.githubusercontent.com/username/repo/main/wallpaper.jpg" # Ganti link gambar (.jpg/.png)
-                  $outputFile = "$env:TEMP\custom_wallpaper.jpg"
-                  
-                  Invoke-WebRequest -Uri $imageUrl -OutFile $outputFile$cSource = "using System.Runtime.InteropServices; public class WallpaperSetter { [DllImport(`"user32.dll`", CharSet = CharSet.Auto)] public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni); }"
-                  Add-Type -TypeDefinition $cSource
-                  [WallpaperSetter]::SystemParametersInfo(20, 0, $outputFile, 3)
-                  Write-Host "✅ Wallpaper berhasil diubah!"
-              } catch {
-                  Write-Host "⚠️ Peringatan: Gagal mengubah wallpaper, proses RDP dilanjutkan."
-              }
-              # ---------------------------
+New-Item -Path $ThemeDir -ItemType Directory -Force | Out-Null
 
-            } else {
-              Write-Host "⛔ GAGAL: $($req.message)"
-              Write-Host "Pastikan kamu sudah klaim Token di Web dan Verify di Bot Telegram @ThyoCloudBot"
-              exit 1
-            }
-          } catch {
-            Write-Host "⛔ Detail Error: $_"
-            Write-Host "Pastikan email sudah terdaftar, token sudah diklaim di web, dan terverifikasi di @ThyoCloudBot"
-            exit 1
-          }
+# Ganti dengan URL gambar milikmu.
+$WallpaperURL = "https://example.com/cyberpunk-wallpaper.jpg"
+$ProfileURL   = "https://example.com/cyberpunk-profile.jpg"
+
+Write-Host "[01/04] MENYIAPKAN DIREKTORI..." -ForegroundColor Cyan
+
+# Unduh wallpaper
+Write-Host "[02/04] MENGUNDUH WALLPAPER..." -ForegroundColor Magenta
+
+Invoke-WebRequest `
+    -Uri $WallpaperURL `
+    -OutFile $WallpaperPath `
+    -UseBasicParsing
+
+if (!(Test-Path $WallpaperPath)) {
+    throw "Wallpaper tidak ditemukan."
+}
+
+# Atur wallpaper untuk akun Windows saat ini
+Write-Host "[03/04] MENERAPKAN WALLPAPER..." -ForegroundColor Cyan
+
+Add-Type @"
+using System.Runtime.InteropServices;
+public class DesktopWallpaper {
+    [DllImport("user32.dll", SetLastError = true,
+    CharSet = CharSet.Auto)]
+    public static extern int SystemParametersInfo(
+        int action, int param, string path, int flags);
+}
+"@
+
+# SPI_SETDESKWALLPAPER = 20
+# SPIF_UPDATEINIFILE | SPIF_SENDCHANGE = 3
+$result = [DesktopWallpaper]::SystemParametersInfo(
+    20, 0, $WallpaperPath, 3
+)
+
+if ($result -eq 0) {
+    throw "Gagal menerapkan wallpaper."
+}
+
+# Simpan pengaturan wallpaper
+Set-ItemProperty `
+    -Path "HKCU:\Control Panel\Desktop" `
+    -Name Wallpaper `
+    -Value $WallpaperPath
+
+Set-ItemProperty `
+    -Path "HKCU:\Control Panel\Desktop" `
+    -Name WallpaperStyle `
+    -Value "10"
+
+Set-ItemProperty `
+    -Path "HKCU:\Control Panel\Desktop" `
+    -Name TileWallpaper `
+    -Value "0"
+
+Write-Host "[04/04] TEMA CYBERPUNK AKTIF!" -ForegroundColor Green
+Write-Host "Wallpaper: $WallpaperPath" -ForegroundColor Cyan
+Write-Host "Foto profil: $ProfilePicturePath" -ForegroundColor Cyan

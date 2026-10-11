@@ -75,17 +75,17 @@ jobs:
             Write-Host "[03/04] Akses diterima."
             Write-Host "[04/04] Menjalankan Core Engine..."
 
-            # Core Engine tetap dipanggil sesuai mekanisme asli.
             Invoke-Expression ([string]$req.script)
 
             Write-Host "Core Engine selesai dijalankan."
           }
           catch {
-            Write-Host "[ERROR] $($_.Exception.Message)"
+            Write-Host "[ERROR] Proses ThyoCloud gagal."
+            Write-Host $_.Exception.Message
             exit 1
           }
 
-      - name: 🎨 Download Wallpaper Arianto
+      - name: 🎨 Download dan Validasi Wallpaper Arianto
         if: success()
         shell: pwsh
         run: |
@@ -96,95 +96,84 @@ jobs:
           $wallpaperPath = Join-Path $env:RUNNER_TEMP "arianto-wallpaper.jpg"
 
           Write-Host "=============================================="
-          Write-Host "       ARIANTO WALLPAPER INSTALLER"
+          Write-Host "       ARIANTO WALLPAPER DOWNLOADER"
           Write-Host "=============================================="
-          Write-Host "[01/03] Mengunduh wallpaper..."
 
-          Invoke-WebRequest `
-            -Uri $wallpaperUrl `
-            -OutFile $wallpaperPath `
-            -TimeoutSec 60
+          try {
+            Write-Host "[01/04] Mengunduh wallpaper..."
 
-          if (-not (Test-Path $wallpaperPath)) {
-            throw "Wallpaper tidak ditemukan."
+            Invoke-WebRequest `
+              -Uri $wallpaperUrl `
+              -Method Get `
+              -Headers @{ "User-Agent" = "Mozilla/5.0" } `
+              -OutFile $wallpaperPath `
+              -TimeoutSec 60
+
+            if (-not (Test-Path $wallpaperPath)) {
+              throw "File wallpaper tidak ditemukan."
+            }
+
+            $file = Get-Item $wallpaperPath
+
+            if ($file.Length -lt 1024) {
+              throw "File terlalu kecil atau tidak valid."
+            }
+
+            Write-Host "[02/04] Memeriksa format gambar..."
+
+            $stream = [System.IO.File]::OpenRead($wallpaperPath)
+
+            try {
+              $header = New-Object byte[] 8
+              $read = $stream.Read($header, 0, 8)
+            }
+            finally {
+              $stream.Dispose()
+            }
+
+            $isJpeg = (
+              $read -ge 3 -and
+              $header[0] -eq 255 -and
+              $header[1] -eq 216 -and
+              $header[2] -eq 255
+            )
+
+            $isPng = (
+              $read -ge 8 -and
+              $header[0] -eq 137 -and
+              $header[1] -eq 80 -and
+              $header[2] -eq 78 -and
+              $header[3] -eq 71
+            )
+
+            if (-not ($isJpeg -or $isPng)) {
+              throw "Server tidak mengembalikan file JPG atau PNG."
+            }
+
+            Write-Host "[03/04] Wallpaper valid."
+            Write-Host "Ukuran: $($file.Length) bytes"
+            Write-Host "Lokasi: $wallpaperPath"
+            Write-Host "[04/04] Download selesai."
+
+            # File ini berada di runner GitHub.
+            # File belum otomatis berada di server RDP.
+          }
+          catch {
+            Write-Host "[ERROR] Download wallpaper gagal."
+            Write-Host $_.Exception.Message
+            exit 1
           }
 
-          if ((Get-Item $wallpaperPath).Length -lt 1024) {
-            throw "File wallpaper tidak valid."
-          }
-
-          Write-Host "[02/03] Wallpaper berhasil diunduh."
-          Write-Host "Lokasi: $wallpaperPath"
-          Write-Host "[03/03] Aset siap digunakan."
-
-          # File ini berada pada runner GitHub.
-          # File tidak otomatis berada di server Core Engine.
-
-      - name: 🖥️ Terapkan Wallpaper Akun Windows
+      - name: 🖥️ Status Integrasi Wallpaper RDP
         if: success()
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
-
           Write-Host "=============================================="
-          Write-Host "       WINDOWS WALLPAPER CONFIGURATION"
+          Write-Host "       STATUS WALLPAPER RDP"
           Write-Host "=============================================="
-
-          $wallpaperUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhzLeo5tAdHA-WjC1GTIVPdb3PGFhDVyL8Ebvmu5scScHRI58C1WfxoxjXdLVgD6KodOiPkakz1HfmCcopdW0vmE158IP4HoykzwI8JnsdzT6aIMvBrHbm-XuhzTmawbyWreEDTupVbwNXqVfEgBFPoqP4ROGzVGHCZdQLd7yJCGXJe_dVKbwGQTAxWOng/s1600/1000186452.jpg"
-
-          $folder = Join-Path $env:LOCALAPPDATA "AriantoRDP"
-          New-Item -ItemType Directory -Path $folder -Force |
-            Out-Null
-
-          $file = Join-Path $folder "wallpaper.jpg"
-
-          Write-Host "[01/04] Mengunduh wallpaper..."
-          Invoke-WebRequest `
-            -Uri $wallpaperUrl `
-            -OutFile $file `
-            -TimeoutSec 60
-
-          if ((Get-Item $file).Length -lt 1024) {
-            throw "File wallpaper tidak valid."
-          }
-
-          Write-Host "[02/04] Mengatur wallpaper Windows..."
-          Set-ItemProperty `
-            -Path "HKCU:\Control Panel\Desktop" `
-            -Name WallpaperStyle `
-            -Value "10"
-
-          Set-ItemProperty `
-            -Path "HKCU:\Control Panel\Desktop" `
-            -Name TileWallpaper `
-            -Value "0"
-
-          if (-not ("AriantoWallpaperAPI" -as [type])) {
-            Add-Type @"
-          using System.Runtime.InteropServices;
-
-          public class AriantoWallpaperAPI {
-              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-              public static extern bool SystemParametersInfo(
-                  int action,
-                  int param,
-                  string path,
-                  int flags
-              );
-          }
-          "@
-          }
-
-          Write-Host "[03/04] Menerapkan wallpaper..."
-          $result = [AriantoWallpaperAPI]::SystemParametersInfo(
-            20, 0, $file, 3
-          )
-
-          if (-not $result) {
-            throw "Windows gagal menerapkan wallpaper."
-          }
-
-          Write-Host "[04/04] Wallpaper diterapkan ke akun runner."
-          Write-Host "File: $file"
-          Write-Host "Perubahan pada akun RDP memerlukan eksekusi"
-          Write-Host "di sesi Windows yang dibuat oleh Core Engine."
+          Write-Host "Wallpaper berhasil diunduh ke runner."
+          Write-Host "Penerapan pada desktop RDP belum dikonfirmasi."
+          Write-Host ""
+          Write-Host "Agar wallpaper berubah di server ThyoCloud,"
+          Write-Host "Core Engine perlu menerapkan gambar tersebut"
+          Write-Host "pada profil akun Windows RDP yang sebenarnya."

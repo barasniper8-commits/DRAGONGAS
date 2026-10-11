@@ -42,8 +42,12 @@ jobs:
 
     - name: Membuka Jalur TCP Tunnel (Port 3389)
       run: |
-        Start-Process .\ngrok.exe -ArgumentList "tcp 3389" -WindowStyle Hidden
-        Start-Sleep -Seconds 5
+        Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389" -RedirectStandardOutput "ngrok_out.log" -RedirectStandardError "ngrok_err.log" -PassThru
+        Start-Sleep -Seconds 7
+        Write-Host "--- Cek Log Ngrok Output ---"
+        Get-Content ngrok_out.log -ErrorAction SilentlyContinue
+        Write-Host "--- Cek Log Ngrok Error ---"
+        Get-Content ngrok_err.log -ErrorAction SilentlyContinue
 
     - name: Menampilkan Detail Koneksi RDP
       run: |

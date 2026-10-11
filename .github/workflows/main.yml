@@ -1,106 +1,52 @@
-name: ThyoCloud Personal RDP (Fork)
+name: Cloud RDP tanpa VPN
 
 on:
   workflow_dispatch:
-    inputs:
-      osChoice:
-        description: 'Pilih Versi Windows Server'
-        required: true
-        type: choice
-        default: 'windows-2022'
-        options:
-          - windows-latest
-          - windows-2025
-          - windows-2022
-      userEmail:
-        description: 'Email yang terdaftar di Web ThyoCloud'
-        required: true
-      customUsername:
-        description: 'Username RDP (Opsional - Default: thyocloud)'
-        required: false
-        default: 'thyocloud'
-      telegramToken:
-        description: 'Token Bot Telegram (Untuk kirim IP & Password)'
-        required: true
-      telegramChatId:
-        description: 'Chat ID Telegram Anda'
-        required: true
 
 jobs:
-  build-rdp:
-    runs-on: ${{ github.event.inputs.osChoice }}
+  rdp:
+    runs-on: windows-latest
     timeout-minutes: 360
 
     steps:
-      - name: 🚀 Menghubungkan ke ThyoCloud Server Web & Konfigurasi RDP
-        env:
-          EMAIL: ${{ github.event.inputs.userEmail }}
-          USER: ${{ github.event.inputs.customUsername }}
-          REPO: ${{ github.event.repository.name }}
-          OS_TYPE: ${{ github.event.inputs.osChoice }}
-          TG_TOKEN: ${{ github.event.inputs.telegramToken }}
-          TG_CHAT: ${{ github.event.inputs.telegramChatId }}
-        run: |
-          Write-Host "Sistem Operasi Terpilih: $env:OS_TYPE"
-          Write-Host "Verifikasi Email ke ThyoCloud..."
-          
-          $webUrl = "https://thyo.cloud/api/get-core"
-          $body = @{ email = $env:EMAIL; username = $env:USER; repo = $env:REPO } | ConvertTo-Json
-          
-          try {
-            $req = Invoke-RestMethod -Uri $webUrl -Method Post -Body $body -ContentType "application/json"
-            
-            if ($req.success -eq $true) {
-              Write-Host "✅ Akses Diterima! Menjalankan Core Engine..."
-              
-              # 1. Jalankan Core Engine dari ThyoCloud
-              Invoke-Expression $req.script
+    - name: Mengaktifkan Fitur RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
 
-              # 2. Set Password RDP agar pasti diketahui
-              $rdpPassword = "ThyoCloudPassword2026!"
-              Write-Host "Mengatur password untuk user: $env:USER..."
-              net user $env:USER $rdpPassword /y
+    - name: Mengatur Kredensial User (runneradmin)
+      run: |
+        $pass = "${{ secrets.RDP_PASS }}"
+        echo "runneradmin`n$pass`n$pass" | net user runneradmin /add /active:yes
+        net localgroup administrators runneradmin /add
 
-              # 3. Mengganti Wallpaper Desktop & Lock Screen
-              Write-Host "Mengganti wallpaper desktop..."
-              $wallpaperUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1920"
-              $wallpaperPath = "$env:TEMP\wallpaper.jpg"
-              Invoke-WebRequest -Uri $wallpaperUrl -OutFile $wallpaperPath
+    - name: Mengunduh Ngrok
+      run: |
+        Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+        Expand-Archive ngrok.zip -DestinationPath .
 
-              # Terapkan wallpaper desktop via API Windows
-              Add-Type -TypeDefinition @"
-              using System;
-              using System.Runtime.InteropServices;
-              public class Wallpaper {
-                  [DllImport("user32.dll", CharSet = CharSet.Auto)]
-                  public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-              }
-              "@
-              [Wallpaper]::SystemParametersInfo(20, 0, $wallpaperPath, 3)
+    - name: Autentikasi Token Ngrok
+      run: |
+        .\ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
 
-              # 4. Ambil IP Publik RDP
-              Start-Sleep -Seconds 5
-              $publicIP = (Invoke-RestMethod -Uri "https://api.ipify.org").Trim()
+    - name: Membuka Jalur TCP Tunnel (Port 3389)
+      run: |
+        Start-Process .\ngrok.exe -ArgumentList "tcp 3389" -WindowStyle Hidden
 
-              # 5. Kirim Detail IP, Username, dan Password ke Telegram
-              Write-Host "Mengirim informasi RDP ke Telegram..."
-              $message = "🚀 *RDP ThyoCloud Berhasil Dibuat!*%0A%0A" +
-                         "💻 *OS:* $env:OS_TYPE%0A" +
-                         "🌐 *IP Address:* `$publicIP%0A" +
-                         "👤 *Username:* `$env:USER%0A" +
-                         "🔑 *Password:* `$rdpPassword%0A%0A" +
-                         "Silakan gunakan Remote Desktop Connection (mstsc) untuk login."
+    - name: Menampilkan Detail Koneksi RDP
+      run: |
+        Start-Sleep -Seconds 7
+        $tunnels = (Invoke-WebRequest -Uri "http://localhost:4040/api/tunnels" -UseBasicParsing).Content | ConvertFrom-Json
+        $tcpTunnel = $tunnels.tunnels \vert{} Where-Object {$_.proto -eq "tcp" }
+        Write-Host "=================================================="
+        Write-Host " RDP Berhasil Dibuat!" -ForegroundColor Green
+        Write-Host " Alamat Host & Port : $($tcpTunnel.public_url -replace 'tcp://', '')"
+        Write-Host " Username           : runneradmin"
+        Write-Host " Password           : (Sesuai secret RDP_PASS Anda)"
+        Write-Host "=================================================="
 
-              $tgUrl = "https://api.telegram.org/bot$env:TG_TOKEN/sendMessage?chat_id=$env:TG_CHAT&text=$message&parse_mode=Markdown"
-              Invoke-RestMethod -Uri $tgUrl -Method Get
-              Write-Host "✅ Selesai! Detail RDP telah dikirim ke Telegram Anda."
-
-            } else {
-              Write-Host "⛔ GAGAL: $($req.message)"
-              Write-Host "Pastikan kamu sudah klaim Token di Web dan Verify di Bot Telegram @ThyoCloudBot"
-              exit 1
-            }
-          } catch {
-            Write-Host "⛔ Terjadi kesalahan: $_"
-            exit 1
-          }
+    - name: Menjaga Sesi RDP Tetap Aktif
+      run: |
+        $duration = 350 # Durasi aktif dalam menit (Maksimal ~6 jam)
+        Start-Sleep -Seconds ($duration * 60)

@@ -7,13 +7,8 @@ on:
         description: 'Tailscale Auth Key'
         required: true
         type: string
-      windows_user:
-        description: 'Nama User Windows'
-        required: true
-        default: 'adminuser'
-        type: string
       windows_pass:
-        description: 'Password Windows'
+        description: 'Password Windows untuk Administrator'
         required: true
         default: 'P@ssw0rd123!'
         type: string
@@ -66,16 +61,15 @@ jobs:
           $tailscalePath = "C:\Program Files\Tailscale\tailscale.exe"
           & $tailscalePath up --authkey="$env:TS_KEY" --accept-routes --unattended
 
-      - name: Configure Windows User & Customizations
+      - name: Configure Windows Administrator & Customizations
         env:
-          W_USER: ${{ inputs.windows_user }}
           W_PASS: ${{ inputs.windows_pass }}
         shell: powershell
         run: |
-          # 1. Buat / Set User Windows & Password dari Input Workflow Dispatch
-          Write-Host "Membuat dan mengatur akun user Windows: $env:W_USER..."
-          net user $env:W_USER $env:W_PASS /add /y
-          net localgroup administrators $env:W_USER /add
+          # 1. Set Password untuk Akun Administrator Bawaan Windows
+          Write-Host "Mengatur password untuk akun Administrator..."
+          net user Administrator $env:W_PASS
+          net user Administrator /active:yes
           net accounts /maxpwage:unlimited
 
           # 2. Pasang Wallpaper Desktop dari Link YML
@@ -104,7 +98,7 @@ jobs:
               Invoke-WebRequest -Uri $env:PROFILE_PIC_URL -OutFile $picPath
               $targetDir = "C:\ProgramData\Microsoft\User Account Pictures"
               if (!(Test-Path $targetDir)) { New-Item -Path $targetDir -ItemType Directory -Force }
-              Copy-Item $picPath "$targetDir\$env:W_USER.png" -Force
+              Copy-Item $picPath "$targetDir\Administrator.png" -Force
           }
 
       - name: Get Tailscale IP & Keep RDP Alive
@@ -116,10 +110,9 @@ jobs:
           Write-Host " RDP & TAILSCALE BERHASIL DIAKTIFKAN!" -ForegroundColor Green
           Write-Host "========================================================" -ForegroundColor Green
           Write-Host " Tailscale IP : $tsIp" -ForegroundColor Yellow
-          Write-Host " Username     : ${{ inputs.windows_user }}" -ForegroundColor Yellow
+          Write-Host " Username     : Administrator" -ForegroundColor Yellow
           Write-Host " Password     : ${{ inputs.windows_pass }}" -ForegroundColor Yellow
           Write-Host "========================================================" -ForegroundColor Green
           Write-Host "Server akan terus aktif selama 6 jam ke depan..."
           
-          # Menahan agar workflow tetap menyala
           Start-Sleep -Seconds 21600

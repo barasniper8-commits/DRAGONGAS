@@ -1,6 +1,6 @@
           # --- TAMBAHAN KODE UNTUK GANTI WALLPAPER ---
           Write-Host "Mengubah wallpaper desktop..."
-          $imageUrl = "URL_LINK_GAMBAR_KAMU_DISINI" # Ganti dengan URL gambar langsung (format .jpg / .png)
+          $imageUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh_ezWnmgsHEVv4JafO82YQBBEakIVYSy36FbHO9YlyMlWNO8y4diMoBsWdI-pynrHq_oPGgKzT9Zh2O5Xfg02yfrFKCMPJyEC2DwZs6CkdfKywWmCmWfr9tWWemg7UKoiYxF1oXdKfie0mUzpg0UBZo1CfeILeBVcj47JYU42IiNTrBHjLGbsTbN_rnxA/s1600/1000186451.jpg" # Ganti dengan URL gambar langsung (format .jpg / .png)
           $outputFile = "$env:TEMP\custom_wallpaper.jpg"
           
           try {

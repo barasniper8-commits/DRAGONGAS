@@ -18,7 +18,11 @@ jobs:
     - name: Mengatur Kredensial User (runneradmin)
       run: |
         $pass = "${{ secrets.RDP_PASS }}"
-        echo "runneradmin`n$pass`n$pass" | net user runneradmin /add /active:yes
+        if ([string]::IsNullOrWhiteSpace($pass)) { 
+            $pass = "Dr4g0n#99$Xau"
+            Write-Host "Menggunakan default password yang kuat: Dr4g0n#99$Xau" -ForegroundColor Yellow
+        }
+        net user runneradmin $pass
         net localgroup administrators runneradmin /add
 
     - name: Mengunduh Ngrok
@@ -38,15 +42,15 @@ jobs:
       run: |
         Start-Sleep -Seconds 7
         $tunnels = (Invoke-WebRequest -Uri "http://localhost:4040/api/tunnels" -UseBasicParsing).Content | ConvertFrom-Json
-        $tcpTunnel = $tunnels.tunnels \vert{} Where-Object {$_.proto -eq "tcp" }
+        $tcpTunnel = $tunnels.tunnels | Where-Object { $_.proto -eq "tcp" }
         Write-Host "=================================================="
         Write-Host " RDP Berhasil Dibuat!" -ForegroundColor Green
         Write-Host " Alamat Host & Port : $($tcpTunnel.public_url -replace 'tcp://', '')"
         Write-Host " Username           : runneradmin"
-        Write-Host " Password           : (Sesuai secret RDP_PASS Anda)"
+        Write-Host " Password           : (Gunakan secret RDP_PASS Anda atau Dr4g0n#99$Xau)"
         Write-Host "=================================================="
 
     - name: Menjaga Sesi RDP Tetap Aktif
       run: |
-        $duration = 350 # Durasi aktif dalam menit (Maksimal ~6 jam)
+        $duration = 350
         Start-Sleep -Seconds ($duration * 60)

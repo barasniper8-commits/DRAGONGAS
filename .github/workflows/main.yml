@@ -26,13 +26,13 @@ jobs:
         net localgroup administrators runneradmin /add
         exit 0
 
-    - name: Install Cloudflare Tunnel
+    - name: Download Cloudflare Tunnel Langsung
       run: |
-        winget install --id Cloudflare.cloudflared -e --silent
+        Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "cloudflared.exe"
 
     - name: Membuka Jalur TCP Tunnel dengan Cloudflare
       run: |
-        Start-Process -FilePath "cloudflared.exe" -ArgumentList "tunnel --url tcp://localhost:3389" -RedirectStandardOutput "cf_out.log" -RedirectStandardError "cf_err.log" -PassThru
+        Start-Process -FilePath ".\cloudflared.exe" -ArgumentList "tunnel --url tcp://localhost:3389" -RedirectStandardOutput "cf_out.log" -RedirectStandardError "cf_err.log" -PassThru
         Start-Sleep -Seconds 15
 
     - name: Menampilkan Detail Koneksi RDP

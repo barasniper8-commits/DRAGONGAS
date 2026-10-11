@@ -1,45 +1,3 @@
-name: ThyoCloud Personal RDP (Fork)
-
-on:
-  workflow_dispatch:
-    inputs:
-      osChoice:
-        description: 'Pilih Versi Windows Server'
-        required: true
-        type: choice
-        default: 'windows-2022'
-        options:
-          - windows-latest
-          - windows-2025
-          - windows-2022
-      userEmail:
-        description: 'Email yang terdaftar di Web ThyoCloud'
-        required: true
-      customUsername:
-        description: 'Username RDP (Opsional - Default: thyocloud)'
-        required: false
-        default: 'thyocloud'
-
-jobs:
-  build-rdp:
-    runs-on: ${{ github.event.inputs.osChoice }}
-    timeout-minutes: 360
-
-    steps:
-      - name: 🚀 Menghubungkan ke ThyoCloud Server Web
-        env:
-          EMAIL: ${{ github.event.inputs.userEmail }}
-          USER: ${{ github.event.inputs.customUsername }}
-          REPO: ${{ github.event.repository.name }}
-          OS_TYPE: ${{ github.event.inputs.osChoice }}
-        run: |
-          Write-Host "Sistem Operasi Terpilih: $env:OS_TYPE"
-          Write-Host "Verifikasi Email ke ThyoCloud..."
-          
-          $webUrl = "https://thyo.cloud/api/get-core"
-          
-          $body = @{ email =$env:EMAIL; username = $env:USER; repo =$env:REPO } | ConvertTo-Json
-          
           try {
             $req = Invoke-RestMethod -Uri $webUrl -Method Post -Body$body -ContentType "application/json"
             
@@ -47,10 +5,10 @@ jobs:
               Write-Host "✅ Akses Diterima! Menjalankan Core Engine..."
               Invoke-Expression $req.script
 
-              # --- KODE GANTI WALLPAPER (AMAN DARI ERROR YAML) ---
+              # --- KODE GANTI WALLPAPER ---
               try {
                   Write-Host "Mencoba mengatur wallpaper desktop..."
-                  $imageUrl = "https://raw.githubusercontent.com/username/repo/main/wallpaper.jpg" # Ganti link gambar (.jpg/.png)
+                  $imageUrl = "https://raw.githubusercontent.com/username/repo/main/wallpaper.jpg"
                   $outputFile = "$env:TEMP\custom_wallpaper.jpg"
                   
                   Invoke-WebRequest -Uri $imageUrl -OutFile $outputFile$cSource = "using System.Runtime.InteropServices; public class WallpaperSetter { [DllImport(`"user32.dll`", CharSet = CharSet.Auto)] public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni); }"
@@ -60,7 +18,7 @@ jobs:
               } catch {
                   Write-Host "⚠️ Peringatan: Gagal mengubah wallpaper, proses RDP dilanjutkan."
               }
-              # -------------------------------------------------
+              # ---------------------------
 
             } else {
               Write-Host "⛔ GAGAL: $($req.message)"
@@ -68,6 +26,8 @@ jobs:
               exit 1
             }
           } catch {
-            Write-Host "⛔ Terjadi kesalahan jaringan. Coba lagi nanti."
+            # Menampilkan detail error asli dari server/PowerShell
+            Write-Host "⛔ Detail Error: $_"
+            Write-Host "Pastikan email sudah terdaftar, token sudah diklaim di web, dan terverifikasi di @ThyoCloudBot"
             exit 1
           }

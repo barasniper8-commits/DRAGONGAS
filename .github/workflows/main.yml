@@ -1,4 +1,4 @@
-name: Cloud RDP (Cloudflare Tunnel)
+name: Cloud RDP (Localtonet)
 
 on:
   workflow_dispatch:
@@ -18,34 +18,26 @@ jobs:
     - name: Mengatur Kredensial User (runneradmin)
       run: |
         $pass = "${{ secrets.RDP_PASS }}"
-        if ([string]::IsNullOrWhiteSpace($pass)) { 
-            $pass = "Dr4g0n#99`$Xau"
-            Write-Host "Menggunakan default password: Dr4g0n#99`$Xau" -ForegroundColor Yellow
+        if ([string]::IsNullOrWhiteSpace($pass)) {$pass = "Dr4g0n#99`$Xau"
         }
         net user runneradmin $pass
         net localgroup administrators runneradmin /add
         exit 0
 
-    - name: Download Cloudflare Tunnel Langsung
+    - name: Download & Jalankan Localtonet
       run: |
-        Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "cloudflared.exe"
+        Invoke-WebRequest -Uri "https://localtonet.com/download/localtonet-windows-x64.zip" -OutFile "localtonet.zip"
+        Expand-Archive localtonet.zip -DestinationPath .
+        # Tempelkan Auth Token Anda di bawah ini
+        Start-Process -FilePath ".\localtonet.exe" -ArgumentList "authtoken PASTE_TOKEN_LOCALTONET_DI_SINI" -PassThru
+        Start-Sleep -Seconds 10
 
-    - name: Membuka Jalur TCP Tunnel dengan Cloudflare
+    - name: Detail Login
       run: |
-        Start-Process -FilePath ".\cloudflared.exe" -ArgumentList "tunnel --url tcp://localhost:3389" -RedirectStandardOutput "cf_out.log" -RedirectStandardError "cf_err.log" -PassThru
-        Start-Sleep -Seconds 15
-
-    - name: Menampilkan Detail Koneksi RDP
-      run: |
-        Start-Sleep -Seconds 5
         Write-Host "=================================================="
-        Write-Host " RDP Berhasil Dibuat via Cloudflare!" -ForegroundColor Green
-        Write-Host "=================================================="
-        Get-Content cf_out.log -ErrorAction SilentlyContinue
-        Get-Content cf_err.log -ErrorAction SilentlyContinue
-        Write-Host "--------------------------------------------------"
         Write-Host " Username : runneradmin"
         Write-Host " Password : Dr4g0n#99`$Xau"
+        Write-Host " Cek Host & Port RDP di Dashboard Localtonet!"
         Write-Host "=================================================="
 
     - name: Menjaga Sesi RDP Tetap Aktif

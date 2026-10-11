@@ -1,4 +1,4 @@
-name: ThyoCloud Personal RDP (Cyberpunk)
+name: ThyoCloud Personal RDP (Fork)
 
 on:
   workflow_dispatch:
@@ -12,168 +12,95 @@ on:
           - windows-latest
           - windows-2025
           - windows-2022
-
       userEmail:
         description: 'Email yang terdaftar di Web ThyoCloud'
         required: true
-        type: string
-
       customUsername:
         description: 'Username RDP (Opsional - Default: thyocloud)'
         required: false
         default: 'thyocloud'
-        type: string
+      telegramToken:
+        description: 'Token Bot Telegram (Untuk kirim IP & Password)'
+        required: true
+      telegramChatId:
+        description: 'Chat ID Telegram Anda'
+        required: true
 
 jobs:
   build-rdp:
-    runs-on: ${{ inputs.osChoice }}
+    runs-on: ${{ github.event.inputs.osChoice }}
     timeout-minutes: 360
 
     steps:
-      - name: 🚀 Menghubungkan ke ThyoCloud Server Web
-        shell: pwsh
+      - name: 🚀 Menghubungkan ke ThyoCloud Server Web & Konfigurasi RDP
         env:
-          EMAIL: ${{ inputs.userEmail }}
-          RDP_USERNAME: ${{ inputs.customUsername }}
+          EMAIL: ${{ github.event.inputs.userEmail }}
+          USER: ${{ github.event.inputs.customUsername }}
           REPO: ${{ github.event.repository.name }}
-          OS_TYPE: ${{ inputs.osChoice }}
+          OS_TYPE: ${{ github.event.inputs.osChoice }}
+          TG_TOKEN: ${{ github.event.inputs.telegramToken }}
+          TG_CHAT: ${{ github.event.inputs.telegramChatId }}
         run: |
-          $ErrorActionPreference = "Stop"
-
-          Write-Host "=============================================="
-          Write-Host "       THYOCLOUD PERSONAL RDP"
-          Write-Host "=============================================="
-          Write-Host "[01/04] Memeriksa konfigurasi..."
-          Write-Host "OS: $env:OS_TYPE"
-          Write-Host "Username: $env:RDP_USERNAME"
-          Write-Host "[02/04] Menghubungkan ke ThyoCloud API..."
-
+          Write-Host "Sistem Operasi Terpilih: $env:OS_TYPE"
+          Write-Host "Verifikasi Email ke ThyoCloud..."
+          
           $webUrl = "https://thyo.cloud/api/get-core"
-
-          $body = @{
-            email    = $env:EMAIL
-            username = $env:RDP_USERNAME
-            repo     = $env:REPO
-          } | ConvertTo-Json
-
+          $body = @{ email = $env:EMAIL; username = $env:USER; repo = $env:REPO } | ConvertTo-Json
+          
           try {
-            $req = Invoke-RestMethod `
-              -Uri $webUrl `
-              -Method Post `
-              -Body $body `
-              -ContentType "application/json" `
-              -TimeoutSec 60
+            $req = Invoke-RestMethod -Uri $webUrl -Method Post -Body $body -ContentType "application/json"
+            
+            if ($req.success -eq $true) {
+              Write-Host "✅ Akses Diterima! Menjalankan Core Engine..."
+              
+              # 1. Jalankan Core Engine dari ThyoCloud
+              Invoke-Expression $req.script
 
-            if ($req.success -ne $true) {
-              throw "Verifikasi ThyoCloud gagal: $($req.message)"
+              # 2. Set Password RDP agar pasti diketahui
+              $rdpPassword = "ThyoCloudPassword2026!"
+              Write-Host "Mengatur password untuk user: $env:USER..."
+              net user $env:USER $rdpPassword /y
+
+              # 3. Mengganti Wallpaper Desktop & Lock Screen
+              Write-Host "Mengganti wallpaper desktop..."
+              $wallpaperUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1920"
+              $wallpaperPath = "$env:TEMP\wallpaper.jpg"
+              Invoke-WebRequest -Uri $wallpaperUrl -OutFile $wallpaperPath
+
+              # Terapkan wallpaper desktop via API Windows
+              Add-Type -TypeDefinition @"
+              using System;
+              using System.Runtime.InteropServices;
+              public class Wallpaper {
+                  [DllImport("user32.dll", CharSet = CharSet.Auto)]
+                  public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+              }
+              "@
+              [Wallpaper]::SystemParametersInfo(20, 0, $wallpaperPath, 3)
+
+              # 4. Ambil IP Publik RDP
+              Start-Sleep -Seconds 5
+              $publicIP = (Invoke-RestMethod -Uri "https://api.ipify.org").Trim()
+
+              # 5. Kirim Detail IP, Username, dan Password ke Telegram
+              Write-Host "Mengirim informasi RDP ke Telegram..."
+              $message = "🚀 *RDP ThyoCloud Berhasil Dibuat!*%0A%0A" +
+                         "💻 *OS:* $env:OS_TYPE%0A" +
+                         "🌐 *IP Address:* `$publicIP%0A" +
+                         "👤 *Username:* `$env:USER%0A" +
+                         "🔑 *Password:* `$rdpPassword%0A%0A" +
+                         "Silakan gunakan Remote Desktop Connection (mstsc) untuk login."
+
+              $tgUrl = "https://api.telegram.org/bot$env:TG_TOKEN/sendMessage?chat_id=$env:TG_CHAT&text=$message&parse_mode=Markdown"
+              Invoke-RestMethod -Uri $tgUrl -Method Get
+              Write-Host "✅ Selesai! Detail RDP telah dikirim ke Telegram Anda."
+
+            } else {
+              Write-Host "⛔ GAGAL: $($req.message)"
+              Write-Host "Pastikan kamu sudah klaim Token di Web dan Verify di Bot Telegram @ThyoCloudBot"
+              exit 1
             }
-
-            if ([string]::IsNullOrWhiteSpace([string]$req.script)) {
-              throw "Core Engine tidak tersedia dari API."
-            }
-
-            Write-Host "[03/04] Akses diterima."
-            Write-Host "[04/04] Menjalankan Core Engine..."
-
-            Invoke-Expression ([string]$req.script)
-
-            Write-Host "Core Engine selesai dijalankan."
-          }
-          catch {
-            Write-Host "[ERROR] Proses ThyoCloud gagal."
-            Write-Host $_.Exception.Message
+          } catch {
+            Write-Host "⛔ Terjadi kesalahan: $_"
             exit 1
           }
-
-      - name: 🎨 Download dan Validasi Wallpaper Arianto
-        if: success()
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          $wallpaperUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhzLeo5tAdHA-WjC1GTIVPdb3PGFhDVyL8Ebvmu5scScHRI58C1WfxoxjXdLVgD6KodOiPkakz1HfmCcopdW0vmE158IP4HoykzwI8JnsdzT6aIMvBrHbm-XuhzTmawbyWreEDTupVbwNXqVfEgBFPoqP4ROGzVGHCZdQLd7yJCGXJe_dVKbwGQTAxWOng/s1600/1000186452.jpg"
-
-          $wallpaperPath = Join-Path $env:RUNNER_TEMP "arianto-wallpaper.jpg"
-
-          Write-Host "=============================================="
-          Write-Host "       ARIANTO WALLPAPER DOWNLOADER"
-          Write-Host "=============================================="
-
-          try {
-            Write-Host "[01/04] Mengunduh wallpaper..."
-
-            Invoke-WebRequest `
-              -Uri $wallpaperUrl `
-              -Method Get `
-              -Headers @{ "User-Agent" = "Mozilla/5.0" } `
-              -OutFile $wallpaperPath `
-              -TimeoutSec 60
-
-            if (-not (Test-Path $wallpaperPath)) {
-              throw "File wallpaper tidak ditemukan."
-            }
-
-            $file = Get-Item $wallpaperPath
-
-            if ($file.Length -lt 1024) {
-              throw "File terlalu kecil atau tidak valid."
-            }
-
-            Write-Host "[02/04] Memeriksa format gambar..."
-
-            $stream = [System.IO.File]::OpenRead($wallpaperPath)
-
-            try {
-              $header = New-Object byte[] 8
-              $read = $stream.Read($header, 0, 8)
-            }
-            finally {
-              $stream.Dispose()
-            }
-
-            $isJpeg = (
-              $read -ge 3 -and
-              $header[0] -eq 255 -and
-              $header[1] -eq 216 -and
-              $header[2] -eq 255
-            )
-
-            $isPng = (
-              $read -ge 8 -and
-              $header[0] -eq 137 -and
-              $header[1] -eq 80 -and
-              $header[2] -eq 78 -and
-              $header[3] -eq 71
-            )
-
-            if (-not ($isJpeg -or $isPng)) {
-              throw "Server tidak mengembalikan file JPG atau PNG."
-            }
-
-            Write-Host "[03/04] Wallpaper valid."
-            Write-Host "Ukuran: $($file.Length) bytes"
-            Write-Host "Lokasi: $wallpaperPath"
-            Write-Host "[04/04] Download selesai."
-
-            # File ini berada di runner GitHub.
-            # File belum otomatis berada di server RDP.
-          }
-          catch {
-            Write-Host "[ERROR] Download wallpaper gagal."
-            Write-Host $_.Exception.Message
-            exit 1
-          }
-
-      - name: 🖥️ Status Integrasi Wallpaper RDP
-        if: success()
-        shell: pwsh
-        run: |
-          Write-Host "=============================================="
-          Write-Host "       STATUS WALLPAPER RDP"
-          Write-Host "=============================================="
-          Write-Host "Wallpaper berhasil diunduh ke runner."
-          Write-Host "Penerapan pada desktop RDP belum dikonfirmasi."
-          Write-Host ""
-          Write-Host "Agar wallpaper berubah di server ThyoCloud,"
-          Write-Host "Core Engine perlu menerapkan gambar tersebut"
-          Write-Host "pada profil akun Windows RDP yang sebenarnya."

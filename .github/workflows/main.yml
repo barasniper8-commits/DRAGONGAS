@@ -28,8 +28,8 @@ jobs:
 
     - name: Membuka Jalur TCP Tunnel dengan Pinggy
       run: |
-        # Menggunakan domain resmi free.pinggy.io untuk TCP Tunnel
-        Start-Process -FilePath "ssh.exe" -ArgumentList "-o StrictHostKeyChecking=no -p 443 -R0:localhost:3389 tcp@free.pinggy.io" -RedirectStandardOutput "pinggy_out.log" -RedirectStandardError "pinggy_err.log" -PassThru
+        # Ditambahkan flag -t agar output URL Pinggy berhasil tertulis ke file log
+        Start-Process -FilePath "ssh.exe" -ArgumentList "-o StrictHostKeyChecking=no -p 443 -t -R0:localhost:3389 tcp@free.pinggy.io" -RedirectStandardOutput "pinggy_out.log" -RedirectStandardError "pinggy_err.log" -PassThru
         Start-Sleep -Seconds 15
 
     - name: Menampilkan Detail Koneksi RDP

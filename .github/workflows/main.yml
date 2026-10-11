@@ -1,4 +1,4 @@
-name: Cloud RDP Tanpa VPN (Serveo)
+name: Cloud RDP (Cloudflare Tunnel)
 
 on:
   workflow_dispatch:
@@ -26,22 +26,23 @@ jobs:
         net localgroup administrators runneradmin /add
         exit 0
 
-    - name: Membuka Jalur TCP Tunnel dengan Serveo
+    - name: Install Cloudflare Tunnel
       run: |
-        # Menggunakan Serveo untuk TCP tunneling port 3389
-        Start-Process -FilePath "ssh.exe" -ArgumentList "-o StrictHostKeyChecking=no -N -R 0:localhost:3389 serveo.net" -RedirectStandardOutput "serveo_out.log" -RedirectStandardError "serveo_err.log" -PassThru
-        Start-Sleep -Seconds 12
+        winget install --id Cloudflare.cloudflared -e --silent
+
+    - name: Membuka Jalur TCP Tunnel dengan Cloudflare
+      run: |
+        Start-Process -FilePath "cloudflared.exe" -ArgumentList "tunnel --url tcp://localhost:3389" -RedirectStandardOutput "cf_out.log" -RedirectStandardError "cf_err.log" -PassThru
+        Start-Sleep -Seconds 15
 
     - name: Menampilkan Detail Koneksi RDP
       run: |
         Start-Sleep -Seconds 5
         Write-Host "=================================================="
-        Write-Host " RDP Berhasil Dibuat via Serveo!" -ForegroundColor Green
+        Write-Host " RDP Berhasil Dibuat via Cloudflare!" -ForegroundColor Green
         Write-Host "=================================================="
-        Write-Host "--- ISI LOG SERVEO OUT ---"
-        Get-Content serveo_out.log -ErrorAction SilentlyContinue
-        Write-Host "--- ISI LOG SERVEO ERR ---"
-        Get-Content serveo_err.log -ErrorAction SilentlyContinue
+        Get-Content cf_out.log -ErrorAction SilentlyContinue
+        Get-Content cf_err.log -ErrorAction SilentlyContinue
         Write-Host "--------------------------------------------------"
         Write-Host " Username : runneradmin"
         Write-Host " Password : Dr4g0n#99`$Xau"

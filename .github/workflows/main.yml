@@ -24,26 +24,21 @@ jobs:
         net localgroup administrators runneradmin /add
         exit 0
 
-    - name: Download & Otentikasi Localtonet
+    - name: Install & Otentikasi Localtonet
       run: |
-        # Download binary resmi Windows 64-bit
-        Invoke-WebRequest -Uri "https://localtonet.com/download/localtonet-win-x64.zip" -OutFile "localtonet.zip"
-        Expand-Archive -Path "localtonet.zip" -DestinationPath "." -Force
-
-        # Otentikasi Token Localtonet
-        .\localtonet.exe --authtoken Xy69Aj4vYi7qgoHtNfLbZD52aw1lxp0zT
+        winget install Localtonet.Localtonet --accept-source-agreements --accept-package-agreements --silent
+        localtonet authtoken Xy69Aj4vYi7qgoHtNfLbZD52aw1lxp0zT
         Start-Sleep -Seconds 5
 
     - name: Membuka Tunnel RDP (Port 3389)
       run: |
-        # Menjalankan tunnel di latar belakang
-        Start-Process -FilePath ".\localtonet.exe" -ArgumentList "tcp --port 3389" -PassThru
+        Start-Process -FilePath "localtonet" -ArgumentList "tcp --port 3389" -PassThru
         Start-Sleep -Seconds 10
 
     - name: Detail Login RDP
       run: |
         Write-Host "=================================================="
-        Write-Host " RDP LOCALTONET AKTIFF!" -ForegroundColor Green
+        Write-Host " RDP LOCALTONET AKTIF!" -ForegroundColor Green
         Write-Host "=================================================="
         Write-Host " Username : runneradmin"
         Write-Host " Password : Dr4g0n#99`$Xau"

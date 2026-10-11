@@ -1,74 +1,111 @@
 
-# ==========================================
-# ARIANTO RDP - CYBERPUNK NEON THEME
-# Wallpaper Desktop + Account Picture
-# ==========================================
+name: Arianto RDP Cyberpunk Theme
 
-$ErrorActionPreference = "Stop"
+on:
+  workflow_dispatch:
+    inputs:
+      osChoice:
+        description: "Pilih Windows Runner"
+        required: true
+        type: choice
+        default: windows-2022
+        options:
+          - windows-latest
+          - windows-2025
+          - windows-2022
 
-$ThemeDir = Join-Path $env:LOCALAPPDATA "AriantoCyberpunk"
-$WallpaperPath = Join-Path $ThemeDir "wallpaper.jpg"
-$ProfilePicturePath = Join-Path $ThemeDir "profile.jpg"
+jobs:
+  cyberpunk-theme:
+    name: Apply Cyberpunk Wallpaper
+    runs-on: ${{ inputs.osChoice }}
+    timeout-minutes: 10
 
-New-Item -Path $ThemeDir -ItemType Directory -Force | Out-Null
+    steps:
+      - name: Initialize Cyberpunk Theme
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
 
-# Ganti dengan URL gambar milikmu.
-$WallpaperURL = "https://example.com/cyberpunk-wallpaper.jpg"
-$ProfileURL   = "https://example.com/cyberpunk-profile.jpg"
+          Write-Host "======================================"
+          Write-Host " ARIANTO RDP - CYBERPUNK NEON"
+          Write-Host "======================================"
 
-Write-Host "[01/04] MENYIAPKAN DIREKTORI..." -ForegroundColor Cyan
+          $ThemeDir = Join-Path $env:LOCALAPPDATA "AriantoCyberpunk"
 
-# Unduh wallpaper
-Write-Host "[02/04] MENGUNDUH WALLPAPER..." -ForegroundColor Magenta
+          New-Item `
+            -Path $ThemeDir `
+            -ItemType Directory `
+            -Force | Out-Null
 
-Invoke-WebRequest `
-    -Uri $WallpaperURL `
-    -OutFile $WallpaperPath `
-    -UseBasicParsing
+          Write-Host "[OK] Folder tema dibuat: $ThemeDir"
 
-if (!(Test-Path $WallpaperPath)) {
-    throw "Wallpaper tidak ditemukan."
-}
+      - name: Configure Desktop Wallpaper
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
 
-# Atur wallpaper untuk akun Windows saat ini
-Write-Host "[03/04] MENERAPKAN WALLPAPER..." -ForegroundColor Cyan
+          # Gunakan URL langsung ke file JPG/PNG milikmu.
+          $WallpaperURL = "https://example.com/cyberpunk-wallpaper.jpg"
 
-Add-Type @"
-using System.Runtime.InteropServices;
-public class DesktopWallpaper {
-    [DllImport("user32.dll", SetLastError = true,
-    CharSet = CharSet.Auto)]
-    public static extern int SystemParametersInfo(
-        int action, int param, string path, int flags);
-}
-"@
+          $ThemeDir = Join-Path $env:LOCALAPPDATA "AriantoCyberpunk"
+          $WallpaperPath = Join-Path $ThemeDir "wallpaper.jpg"
 
-# SPI_SETDESKWALLPAPER = 20
-# SPIF_UPDATEINIFILE | SPIF_SENDCHANGE = 3
-$result = [DesktopWallpaper]::SystemParametersInfo(
-    20, 0, $WallpaperPath, 3
-)
+          Write-Host "[01] Mengunduh wallpaper..."
 
-if ($result -eq 0) {
-    throw "Gagal menerapkan wallpaper."
-}
+          try {
+            Invoke-WebRequest `
+              -Uri $WallpaperURL `
+              -OutFile $WallpaperPath `
+              -TimeoutSec 30 `
+              -UseBasicParsing
 
-# Simpan pengaturan wallpaper
-Set-ItemProperty `
-    -Path "HKCU:\Control Panel\Desktop" `
-    -Name Wallpaper `
-    -Value $WallpaperPath
+            if (!(Test-Path $WallpaperPath)) {
+              throw "File wallpaper tidak ditemukan."
+            }
 
-Set-ItemProperty `
-    -Path "HKCU:\Control Panel\Desktop" `
-    -Name WallpaperStyle `
-    -Value "10"
+            $Image = [System.Drawing.Image]::FromFile($WallpaperPath)
+            $Image.Dispose()
 
-Set-ItemProperty `
-    -Path "HKCU:\Control Panel\Desktop" `
-    -Name TileWallpaper `
-    -Value "0"
+            Add-Type @"
+          using System.Runtime.InteropServices;
+          public class DesktopWallpaper {
+              [DllImport("user32.dll", SetLastError = true,
+              CharSet = CharSet.Auto)]
+              public static extern bool SystemParametersInfo(
+                  int action, int param, string path, int flags);
+          }
+          "@
 
-Write-Host "[04/04] TEMA CYBERPUNK AKTIF!" -ForegroundColor Green
-Write-Host "Wallpaper: $WallpaperPath" -ForegroundColor Cyan
-Write-Host "Foto profil: $ProfilePicturePath" -ForegroundColor Cyan
+            $result = [DesktopWallpaper]::SystemParametersInfo(
+              20, 0, $WallpaperPath, 3
+            )
+
+            if (!$result) {
+              throw "Windows gagal menerapkan wallpaper."
+            }
+
+            Set-ItemProperty `
+              -Path "HKCU:\Control Panel\Desktop" `
+              -Name WallpaperStyle `
+              -Value "10"
+
+            Set-ItemProperty `
+              -Path "HKCU:\Control Panel\Desktop" `
+              -Name TileWallpaper `
+              -Value "0"
+
+            Write-Host "[OK] Wallpaper diterapkan."
+          }
+          catch {
+            Write-Host "[ERROR] $($_.Exception.Message)"
+            throw
+          }
+
+      - name: Finish
+        shell: pwsh
+        run: |
+          Write-Host "======================================"
+          Write-Host " CYBERPUNK THEME WORKFLOW SELESAI"
+          Write-Host "======================================"
+          Write-Host "Catatan: perubahan desktop berlaku"
+          Write-Host "pada sesi pengguna runner ini."

@@ -100,12 +100,12 @@ jobs:
               Write-Host "Mengunduh dan memasang Foto Profil..."
               $picPath = "C:\profile.png"
               Invoke-WebRequest -Uri $env:PROFILE_PIC_URL -OutFile $picPath
-              $targetDir = "C:\ProgramData\Microsoft\User Account Pictures"
+            $targetDir = "C:\ProgramData\Microsoft\User Account Pictures"
               if (!(Test-Path $targetDir)) { New-Item -Path $targetDir -ItemType Directory -Force }
               Copy-Item $picPath "$targetDir\$env:W_USER.png" -Force
           }
 
-      - name: Get Tailscale IP & Print Connection Details
+      - name: Get Tailscale IP & Keep RDP Alive
         shell: powershell
         run: |
           $tailscalePath = "C:\Program Files\Tailscale\tailscale.exe"
@@ -117,4 +117,7 @@ jobs:
           Write-Host " Username     : ${{ inputs.windows_user }}" -ForegroundColor Yellow
           Write-Host " Password     : ${{ inputs.windows_pass }}" -ForegroundColor Yellow
           Write-Host "========================================================" -ForegroundColor Green
-          Write-Host "Gunakan IP Tailscale di atas untuk koneksi via Remote Desktop (RDP)."
+          Write-Host "Server akan terus aktif selama 6 jam ke depan..."
+          
+          # Menahan agar workflow tidak selesai/mati (berjalan selama 6 jam)
+          Start-Sleep -Seconds 21600

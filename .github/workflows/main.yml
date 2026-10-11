@@ -41,14 +41,13 @@ jobs:
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
 
-      - name: Install & Setup Tailscale on Windows
+      - name: Install & Setup Tailscale using WinGet
         shell: powershell
         env:
           TS_KEY: ${{ inputs.tailscale_auth_key }}
         run: |
-          Write-Host "Mengunduh dan menginstal Tailscale..."
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.msi" -OutFile "tailscale-setup.msi"
-          Start-Process msiexec.exe -Wait -ArgumentList '/i tailscale-setup.msi /quiet /norestart'
+          Write-Host "Menginstal Tailscale via WinGet..."
+          winget install --id Tailscale.Tailscale -e --accept-package-agreements --accept-source-agreements --silent
           
           Write-Host "Menghubungkan ke Tailscale..."
           $tailscalePath = "C:\Program Files\Tailscale\tailscale.exe"

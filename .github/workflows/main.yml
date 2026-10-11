@@ -29,7 +29,7 @@ jobs:
       - name: 🚀 Menghubungkan ke ThyoCloud Server Web
         env:
           EMAIL: ${{ github.event.inputs.userEmail }}
-          USER: ${{ github.event.inputs.customUsername }}
+          RDP_USER: ${{ github.event.inputs.customUsername }}
           REPO: ${{ github.event.repository.name }}
           OS_TYPE: ${{ github.event.inputs.osChoice }}
         run: |
@@ -38,7 +38,7 @@ jobs:
           
           $webUrl = "https://thyo.cloud/api/get-core"
           
-          $body = @{ email =$env:EMAIL; username = $env:USER; repo =$env:REPO } | ConvertTo-Json
+          $body = @{ email =$env:EMAIL; username = $env:RDP_USER; repo =$env:REPO } | ConvertTo-Json
           
           try {
             $req = Invoke-RestMethod -Uri $webUrl -Method Post -Body$body -ContentType "application/json"

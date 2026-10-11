@@ -1,0 +1,22 @@
+          # --- TAMBAHAN KODE UNTUK GANTI WALLPAPER ---
+          Write-Host "Mengubah wallpaper desktop..."
+          $imageUrl = "URL_LINK_GAMBAR_KAMU_DISINI" # Ganti dengan URL gambar langsung (format .jpg / .png)
+          $outputFile = "$env:TEMP\custom_wallpaper.jpg"
+          
+          try {
+              # Download gambar ke folder Temp
+              Invoke-WebRequest -Uri $imageUrl -OutFile $outputFile
+              
+              # Panggil fungsi Windows API untuk mengubah wallpaper
+              Add-Type -TypeDefinition @"
+              using System.Runtime.InteropServices;
+              public class WallpaperSetter {
+                  [DllImport("user32.dll", CharSet = CharSet.Auto)]
+                  public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+              }
+"@
+              [WallpaperSetter]::SystemParametersInfo(20, 0, $outputFile, 3)
+              Write-Host "✅ Wallpaper berhasil diubah!"
+          } catch {
+              Write-Host "⚠️ Gagal mengubah wallpaper: $_"
+          }

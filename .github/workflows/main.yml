@@ -1,4 +1,4 @@
-name: Cloud RDP Tanpa VPN (Pinggy)
+name: Cloud RDP Tanpa VPN (Serveo)
 
 on:
   workflow_dispatch:
@@ -26,22 +26,22 @@ jobs:
         net localgroup administrators runneradmin /add
         exit 0
 
-    - name: Membuka Jalur TCP Tunnel dengan Pinggy
+    - name: Membuka Jalur TCP Tunnel dengan Serveo
       run: |
-        # Ditambahkan flag -t agar output URL Pinggy berhasil tertulis ke file log
-        Start-Process -FilePath "ssh.exe" -ArgumentList "-o StrictHostKeyChecking=no -p 443 -t -R0:localhost:3389 tcp@free.pinggy.io" -RedirectStandardOutput "pinggy_out.log" -RedirectStandardError "pinggy_err.log" -PassThru
-        Start-Sleep -Seconds 15
+        # Menggunakan Serveo untuk TCP tunneling port 3389
+        Start-Process -FilePath "ssh.exe" -ArgumentList "-o StrictHostKeyChecking=no -N -R 0:localhost:3389 serveo.net" -RedirectStandardOutput "serveo_out.log" -RedirectStandardError "serveo_err.log" -PassThru
+        Start-Sleep -Seconds 12
 
     - name: Menampilkan Detail Koneksi RDP
       run: |
         Start-Sleep -Seconds 5
         Write-Host "=================================================="
-        Write-Host " RDP Berhasil Dibuat via Pinggy!" -ForegroundColor Green
+        Write-Host " RDP Berhasil Dibuat via Serveo!" -ForegroundColor Green
         Write-Host "=================================================="
-        Write-Host "--- ISI LOG PINGGY OUT ---"
-        Get-Content pinggy_out.log -ErrorAction SilentlyContinue
-        Write-Host "--- ISI LOG PINGGY ERR ---"
-        Get-Content pinggy_err.log -ErrorAction SilentlyContinue
+        Write-Host "--- ISI LOG SERVEO OUT ---"
+        Get-Content serveo_out.log -ErrorAction SilentlyContinue
+        Write-Host "--- ISI LOG SERVEO ERR ---"
+        Get-Content serveo_err.log -ErrorAction SilentlyContinue
         Write-Host "--------------------------------------------------"
         Write-Host " Username : runneradmin"
         Write-Host " Password : Dr4g0n#99`$Xau"

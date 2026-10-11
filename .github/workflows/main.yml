@@ -24,20 +24,31 @@ jobs:
         net localgroup administrators runneradmin /add
         exit 0
 
-    - name: Download & Jalankan Localtonet
+    - name: Download & Otentikasi Localtonet
       run: |
-        Invoke-WebRequest -Uri "https://localtonet.com/download/localtonet-windows-x64.zip" -OutFile "localtonet.zip"
-        Expand-Archive localtonet.zip -DestinationPath .
-        # Tempelkan Auth Token Anda di bawah ini
-        Start-Process -FilePath ".\localtonet.exe" -ArgumentList "authtoken PASTE_TOKEN_LOCALTONET_DI_SINI" -PassThru
+        # Download binary resmi Windows 64-bit
+        Invoke-WebRequest -Uri "https://localtonet.com/download/localtonet-win-x64.zip" -OutFile "localtonet.zip"
+        Expand-Archive -Path "localtonet.zip" -DestinationPath "." -Force
+
+        # Otentikasi Token Localtonet
+        .\localtonet.exe --authtoken Xy69Aj4vYi7qgoHtNfLbZD52aw1lxp0zT
+        Start-Sleep -Seconds 5
+
+    - name: Membuka Tunnel RDP (Port 3389)
+      run: |
+        # Menjalankan tunnel di latar belakang
+        Start-Process -FilePath ".\localtonet.exe" -ArgumentList "tcp --port 3389" -PassThru
         Start-Sleep -Seconds 10
 
-    - name: Detail Login
+    - name: Detail Login RDP
       run: |
+        Write-Host "=================================================="
+        Write-Host " RDP LOCALTONET AKTIFF!" -ForegroundColor Green
         Write-Host "=================================================="
         Write-Host " Username : runneradmin"
         Write-Host " Password : Dr4g0n#99`$Xau"
-        Write-Host " Cek Host & Port RDP di Dashboard Localtonet!"
+        Write-Host "--------------------------------------------------"
+        Write-Host " Cek Host & Port RDP di Dashboard Localtonet Anda!"
         Write-Host "=================================================="
 
     - name: Menjaga Sesi RDP Tetap Aktif

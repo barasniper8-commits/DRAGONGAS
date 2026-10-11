@@ -19,7 +19,7 @@ on:
         type: string
 
       customUsername:
-        description: 'Username RDP'
+        description: 'Username RDP (Opsional - Default: thyocloud)'
         required: false
         default: 'thyocloud'
         type: string
@@ -42,11 +42,11 @@ jobs:
 
           Write-Host ""
           Write-Host "=============================================="
-          Write-Host "       THYOCLOUD CYBERPUNK RDP"
+          Write-Host "       THYOCLOUD PERSONAL RDP"
           Write-Host "=============================================="
-          Write-Host "[01/04] Memeriksa konfigurasi Windows..."
-          Write-Host "OS       : $env:OS_TYPE"
-          Write-Host "Username : $env:USER"
+          Write-Host "[01/04] Memeriksa konfigurasi..."
+          Write-Host "OS: $env:OS_TYPE"
+          Write-Host "Username: $env:USER"
           Write-Host "[02/04] Menghubungkan ke ThyoCloud API..."
 
           $webUrl = "https://thyo.cloud/api/get-core"
@@ -71,20 +71,14 @@ jobs:
               exit 1
             }
 
+            if ([string]::IsNullOrWhiteSpace([string]$req.script)) {
+              throw "Script Core Engine tidak tersedia."
+            }
+
             Write-Host "[03/04] Akses diterima."
             Write-Host "[04/04] Menjalankan Core Engine..."
 
-            if ([string]::IsNullOrWhiteSpace([string]$req.script)) {
-              throw "Core Engine tidak tersedia dari API."
-            }
-
-            # Menjalankan script resmi yang dikembalikan API.
-            # Tidak menampilkan isi script atau kredensial ke log.
             Invoke-Expression ([string]$req.script)
-
-            Write-Host ""
-            Write-Host "Core Engine selesai dijalankan."
-            Write-Host "Periksa log di atas untuk status persiapan RDP."
           }
           catch {
             Write-Host "[ERROR] Proses ThyoCloud gagal."
@@ -92,48 +86,114 @@ jobs:
             exit 1
           }
 
-      - name: 🎨 Siapkan aset Cyberpunk
+      - name: 🎨 Download Wallpaper Arianto
         if: success()
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
 
           Write-Host "=============================================="
-          Write-Host "       CYBERPUNK DESKTOP CONFIGURATION"
+          Write-Host "       ARIANTO WALLPAPER INSTALLER"
           Write-Host "=============================================="
 
-          $assetDir = Join-Path $env:RUNNER_TEMP "cyberpunk-assets"
-          New-Item -ItemType Directory -Path $assetDir -Force |
+          $wallpaperUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhzLeo5tAdHA-WjC1GTIVPdb3PGFhDVyL8Ebvmu5scScHRI58C1WfxoxjXdLVgD6KodOiPkakz1HfmCcopdW0vmE158IP4HoykzwI8JnsdzT6aIMvBrHbm-XuhzTmawbyWreEDTupVbwNXqVfEgBFPoqP4ROGzVGHCZdQLd7yJCGXJe_dVKbwGQTAxWOng/s1600/1000186452.jpg"
+
+          $wallpaperPath = Join-Path $env:RUNNER_TEMP "arianto-wallpaper.jpg"
+
+          Write-Host "[01/03] Mengunduh gambar wallpaper..."
+
+          Invoke-WebRequest `
+            -Uri $wallpaperUrl `
+            -OutFile $wallpaperPath `
+            -TimeoutSec 60
+
+          if (-not (Test-Path $wallpaperPath)) {
+            throw "Wallpaper tidak ditemukan."
+          }
+
+          if ((Get-Item $wallpaperPath).Length -lt 1024) {
+            throw "File wallpaper kosong atau tidak valid."
+          }
+
+          Write-Host "[02/03] Wallpaper berhasil diunduh."
+          Write-Host "Lokasi file: $wallpaperPath"
+
+          # Runner GitHub Actions dan sesi RDP dapat menggunakan
+          # akun Windows yang berbeda. Karena itu, simpan aset
+          # terlebih dahulu; penerapan harus dilakukan di sesi RDP.
+
+      - name: 🖥️ Terapkan Wallpaper ke Sesi Windows
+        if: success()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          Write-Host "=============================================="
+          Write-Host "       WINDOWS DESKTOP CONFIGURATION"
+          Write-Host "=============================================="
+
+          # File di RUNNER_TEMP tidak otomatis tersedia sebagai
+          # wallpaper untuk akun RDP yang berbeda.
+          # Unduh langsung ke profil akun yang menjalankan langkah ini.
+
+          $wallpaperUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhzLeo5tAdHA-WjC1GTIVPdb3PGFhDVyL8Ebvmu5scScHRI58C1WfxoxjXdLVgD6KodOiPkakz1HfmCcopdW0vmE158IP4HoykzwI8JnsdzT6aIMvBrHbm-XuhzTmawbyWreEDTupVbwNXqVfEgBFPoqP4ROGzVGHCZdQLd7yJCGXJe_dVKbwGQTAxWOng/s1600/1000186452.jpg"
+
+          $desktopDir = Join-Path $env:USERPROFILE "Pictures"
+          New-Item -ItemType Directory -Path $desktopDir -Force |
             Out-Null
 
-          # URL gambar dapat diganti dengan URL gambar milikmu.
-          $wallpaperUrl = "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1920&q=90"
-          $profileUrl = "https://images.unsplash.com/photo-1535223289827-42f1e9919769?auto=format&fit=crop&w=512&q=90"
+          $wallpaperPath = Join-Path $desktopDir "Arianto-Wallpaper.jpg"
 
-          $wallpaperPath = Join-Path $assetDir "wallpaper.jpg"
-          $profilePath = Join-Path $assetDir "profile.jpg"
+          Write-Host "[01/04] Mengunduh wallpaper..."
+          Invoke-WebRequest `
+            -Uri $wallpaperUrl `
+            -OutFile $wallpaperPath `
+            -TimeoutSec 60
 
-          try {
-            Invoke-WebRequest `
-              -Uri $wallpaperUrl `
-              -OutFile $wallpaperPath `
-              -TimeoutSec 30
-
-            Invoke-WebRequest `
-              -Uri $profileUrl `
-              -OutFile $profilePath `
-              -TimeoutSec 30
-
-            Write-Host "[OK] Wallpaper tersimpan."
-            Write-Host "[OK] Foto profil tersimpan."
-            Write-Host "Folder aset: $assetDir"
-            Write-Host ""
-            Write-Host "Aset siap digunakan oleh konfigurasi Windows."
-            Write-Host "Catatan: file gambar saja tidak mengubah profil"
-            Write-Host "atau wallpaper Windows secara otomatis."
+          if (-not (Test-Path $wallpaperPath)) {
+            throw "Gagal mengunduh wallpaper."
           }
-          catch {
-            Write-Host "[WARNING] Gagal mengambil aset gambar."
-            Write-Host "Periksa URL atau koneksi internet."
-            Write-Host $_.Exception.Message
+
+          Write-Host "[02/04] Menyiapkan pengaturan desktop..."
+
+          Set-ItemProperty `
+            -Path "HKCU:\Control Panel\Desktop" `
+            -Name WallpaperStyle `
+            -Value "10"
+
+          Set-ItemProperty `
+            -Path "HKCU:\Control Panel\Desktop" `
+            -Name TileWallpaper `
+            -Value "0"
+
+          if (-not ("AriantoWallpaperApi" -as [type])) {
+            Add-Type @"
+          using System.Runtime.InteropServices;
+
+          public class AriantoWallpaperApi {
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+              public static extern bool SystemParametersInfo(
+                  int action,
+                  int param,
+                  string path,
+                  int flags
+              );
           }
+          "@
+          }
+
+          Write-Host "[03/04] Menerapkan wallpaper Windows..."
+
+          $result = [AriantoWallpaperApi]::SystemParametersInfo(
+            20,
+            0,
+            $wallpaperPath,
+            3
+          )
+
+          if (-not $result) {
+            throw "Windows gagal menerapkan wallpaper."
+          }
+
+          Write-Host "[04/04] Wallpaper berhasil diterapkan."
+          Write-Host "File: $wallpaperPath"

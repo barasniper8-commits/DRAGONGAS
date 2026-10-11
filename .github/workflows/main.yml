@@ -70,16 +70,7 @@ jobs:
               Write-Host "Mengunduh dan memasang Wallpaper Desktop..."
               $wpPath = "C:\wallpaper.jpg"
               Invoke-WebRequest -Uri $env:WALLPAPER_URL -OutFile $wpPath
-              
-              $csCode = @"
-    using System;
-    using System.Runtime.InteropServices;
-    public class Wallpaper {
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-    }
-    "@
-              Add-Type -TypeDefinition $csCode
+              Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class Wallpaper { [DllImport("user32.dll", CharSet = CharSet.Auto)] public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni); }'
               [Wallpaper]::SystemParametersInfo(20, 0, $wpPath, 3)
           }
 

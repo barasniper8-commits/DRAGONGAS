@@ -1,111 +1,139 @@
-
-name: Arianto RDP Cyberpunk Theme
+name: ThyoCloud Personal RDP (Cyberpunk)
 
 on:
   workflow_dispatch:
     inputs:
       osChoice:
-        description: "Pilih Windows Runner"
+        description: 'Pilih Versi Windows Server'
         required: true
         type: choice
-        default: windows-2022
+        default: 'windows-2022'
         options:
           - windows-latest
           - windows-2025
           - windows-2022
 
+      userEmail:
+        description: 'Email yang terdaftar di Web ThyoCloud'
+        required: true
+        type: string
+
+      customUsername:
+        description: 'Username RDP'
+        required: false
+        default: 'thyocloud'
+        type: string
+
 jobs:
-  cyberpunk-theme:
-    name: Apply Cyberpunk Wallpaper
+  build-rdp:
     runs-on: ${{ inputs.osChoice }}
-    timeout-minutes: 10
+    timeout-minutes: 360
 
     steps:
-      - name: Initialize Cyberpunk Theme
+      - name: 🚀 Menghubungkan ke ThyoCloud Server Web
+        shell: pwsh
+        env:
+          EMAIL: ${{ inputs.userEmail }}
+          USER: ${{ inputs.customUsername }}
+          REPO: ${{ github.event.repository.name }}
+          OS_TYPE: ${{ inputs.osChoice }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          Write-Host ""
+          Write-Host "=============================================="
+          Write-Host "       THYOCLOUD CYBERPUNK RDP"
+          Write-Host "=============================================="
+          Write-Host "[01/04] Memeriksa konfigurasi Windows..."
+          Write-Host "OS       : $env:OS_TYPE"
+          Write-Host "Username : $env:USER"
+          Write-Host "[02/04] Menghubungkan ke ThyoCloud API..."
+
+          $webUrl = "https://thyo.cloud/api/get-core"
+
+          $body = @{
+            email    = $env:EMAIL
+            username = $env:USER
+            repo     = $env:REPO
+          } | ConvertTo-Json
+
+          try {
+            $req = Invoke-RestMethod `
+              -Uri $webUrl `
+              -Method Post `
+              -Body $body `
+              -ContentType "application/json" `
+              -TimeoutSec 60
+
+            if ($req.success -ne $true) {
+              Write-Host "[ERROR] Verifikasi ThyoCloud gagal."
+              Write-Host $req.message
+              exit 1
+            }
+
+            Write-Host "[03/04] Akses diterima."
+            Write-Host "[04/04] Menjalankan Core Engine..."
+
+            if ([string]::IsNullOrWhiteSpace([string]$req.script)) {
+              throw "Core Engine tidak tersedia dari API."
+            }
+
+            # Menjalankan script resmi yang dikembalikan API.
+            # Tidak menampilkan isi script atau kredensial ke log.
+            Invoke-Expression ([string]$req.script)
+
+            Write-Host ""
+            Write-Host "Core Engine selesai dijalankan."
+            Write-Host "Periksa log di atas untuk status persiapan RDP."
+          }
+          catch {
+            Write-Host "[ERROR] Proses ThyoCloud gagal."
+            Write-Host $_.Exception.Message
+            exit 1
+          }
+
+      - name: 🎨 Siapkan aset Cyberpunk
+        if: success()
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
 
-          Write-Host "======================================"
-          Write-Host " ARIANTO RDP - CYBERPUNK NEON"
-          Write-Host "======================================"
+          Write-Host "=============================================="
+          Write-Host "       CYBERPUNK DESKTOP CONFIGURATION"
+          Write-Host "=============================================="
 
-          $ThemeDir = Join-Path $env:LOCALAPPDATA "AriantoCyberpunk"
+          $assetDir = Join-Path $env:RUNNER_TEMP "cyberpunk-assets"
+          New-Item -ItemType Directory -Path $assetDir -Force |
+            Out-Null
 
-          New-Item `
-            -Path $ThemeDir `
-            -ItemType Directory `
-            -Force | Out-Null
+          # URL gambar dapat diganti dengan URL gambar milikmu.
+          $wallpaperUrl = "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1920&q=90"
+          $profileUrl = "https://images.unsplash.com/photo-1535223289827-42f1e9919769?auto=format&fit=crop&w=512&q=90"
 
-          Write-Host "[OK] Folder tema dibuat: $ThemeDir"
-
-      - name: Configure Desktop Wallpaper
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          # Gunakan URL langsung ke file JPG/PNG milikmu.
-          $WallpaperURL = "https://example.com/cyberpunk-wallpaper.jpg"
-
-          $ThemeDir = Join-Path $env:LOCALAPPDATA "AriantoCyberpunk"
-          $WallpaperPath = Join-Path $ThemeDir "wallpaper.jpg"
-
-          Write-Host "[01] Mengunduh wallpaper..."
+          $wallpaperPath = Join-Path $assetDir "wallpaper.jpg"
+          $profilePath = Join-Path $assetDir "profile.jpg"
 
           try {
             Invoke-WebRequest `
-              -Uri $WallpaperURL `
-              -OutFile $WallpaperPath `
-              -TimeoutSec 30 `
-              -UseBasicParsing
+              -Uri $wallpaperUrl `
+              -OutFile $wallpaperPath `
+              -TimeoutSec 30
 
-            if (!(Test-Path $WallpaperPath)) {
-              throw "File wallpaper tidak ditemukan."
-            }
+            Invoke-WebRequest `
+              -Uri $profileUrl `
+              -OutFile $profilePath `
+              -TimeoutSec 30
 
-            $Image = [System.Drawing.Image]::FromFile($WallpaperPath)
-            $Image.Dispose()
-
-            Add-Type @"
-          using System.Runtime.InteropServices;
-          public class DesktopWallpaper {
-              [DllImport("user32.dll", SetLastError = true,
-              CharSet = CharSet.Auto)]
-              public static extern bool SystemParametersInfo(
-                  int action, int param, string path, int flags);
-          }
-          "@
-
-            $result = [DesktopWallpaper]::SystemParametersInfo(
-              20, 0, $WallpaperPath, 3
-            )
-
-            if (!$result) {
-              throw "Windows gagal menerapkan wallpaper."
-            }
-
-            Set-ItemProperty `
-              -Path "HKCU:\Control Panel\Desktop" `
-              -Name WallpaperStyle `
-              -Value "10"
-
-            Set-ItemProperty `
-              -Path "HKCU:\Control Panel\Desktop" `
-              -Name TileWallpaper `
-              -Value "0"
-
-            Write-Host "[OK] Wallpaper diterapkan."
+            Write-Host "[OK] Wallpaper tersimpan."
+            Write-Host "[OK] Foto profil tersimpan."
+            Write-Host "Folder aset: $assetDir"
+            Write-Host ""
+            Write-Host "Aset siap digunakan oleh konfigurasi Windows."
+            Write-Host "Catatan: file gambar saja tidak mengubah profil"
+            Write-Host "atau wallpaper Windows secara otomatis."
           }
           catch {
-            Write-Host "[ERROR] $($_.Exception.Message)"
-            throw
+            Write-Host "[WARNING] Gagal mengambil aset gambar."
+            Write-Host "Periksa URL atau koneksi internet."
+            Write-Host $_.Exception.Message
           }
-
-      - name: Finish
-        shell: pwsh
-        run: |
-          Write-Host "======================================"
-          Write-Host " CYBERPUNK THEME WORKFLOW SELESAI"
-          Write-Host "======================================"
-          Write-Host "Catatan: perubahan desktop berlaku"
-          Write-Host "pada sesi pengguna runner ini."

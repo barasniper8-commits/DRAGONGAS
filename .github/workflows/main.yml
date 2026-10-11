@@ -35,40 +35,32 @@ jobs:
         run: |
           Write-Host "Sistem Operasi Terpilih: $env:OS_TYPE"
           Write-Host "Verifikasi Email ke ThyoCloud..."
-
-        
+          
           $webUrl = "https://thyo.cloud/api/get-core"
           
-          $body = @{ email = $env:EMAIL; username = $env:USER; repo = $env:REPO } | ConvertTo-Json
+          $body = @{ email =$env:EMAIL; username = $env:USER; repo =$env:REPO } | ConvertTo-Json
           
           try {
-            $req = Invoke-RestMethod -Uri $webUrl -Method Post -Body $body -ContentType "application/json"
+            $req = Invoke-RestMethod -Uri $webUrl -Method Post -Body$body -ContentType "application/json"
             
-            if ($req.success -eq $true) {
+            if ($req.success -eq$true) {
               Write-Host "✅ Akses Diterima! Menjalankan Core Engine..."
               Invoke-Expression $req.script
 
-              # --- KODE GANTI WALLPAPER ---
+              # --- KODE GANTI WALLPAPER (AMAN DARI ERROR YAML) ---
               try {
                   Write-Host "Mencoba mengatur wallpaper desktop..."
-                  $imageUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh_ezWnmgsHEVv4JafO82YQBBEakIVYSy36FbHO9YlyMlWNO8y4diMoBsWdI-pynrHq_oPGgKzT9Zh2O5Xfg02yfrFKCMPJyEC2DwZs6CkdfKywWmCmWfr9tWWemg7UKoiYxF1oXdKfie0mUzpg0UBZo1CfeILeBVcj47JYU42IiNTrBHjLGbsTbN_rnxA/s1600/1000186451.jpg" # Ganti dengan link langsung gambar kamu (.jpg/.png)
+                  $imageUrl = "https://raw.githubusercontent.com/username/repo/main/wallpaper.jpg" # Ganti link gambar (.jpg/.png)
                   $outputFile = "$env:TEMP\custom_wallpaper.jpg"
                   
-                  Invoke-WebRequest -Uri $imageUrl -OutFile $outputFile
-                  
-                  Add-Type -TypeDefinition @"
-                  using System.Runtime.InteropServices;
-                  public class WallpaperSetter {
-                      [DllImport("user32.dll", CharSet = CharSet.Auto)]
-                      public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-                  }
-"@
+                  Invoke-WebRequest -Uri $imageUrl -OutFile $outputFile$cSource = "using System.Runtime.InteropServices; public class WallpaperSetter { [DllImport(`"user32.dll`", CharSet = CharSet.Auto)] public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni); }"
+                  Add-Type -TypeDefinition $cSource
                   [WallpaperSetter]::SystemParametersInfo(20, 0, $outputFile, 3)
                   Write-Host "✅ Wallpaper berhasil diubah!"
               } catch {
                   Write-Host "⚠️ Peringatan: Gagal mengubah wallpaper, proses RDP dilanjutkan."
               }
-              # ---------------------------
+              # -------------------------------------------------
 
             } else {
               Write-Host "⛔ GAGAL: $($req.message)"

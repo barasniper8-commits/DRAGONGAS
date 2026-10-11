@@ -1,22 +1,81 @@
-          # --- TAMBAHAN KODE UNTUK GANTI WALLPAPER ---
-          Write-Host "Mengubah wallpaper desktop..."
-          $imageUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh_ezWnmgsHEVv4JafO82YQBBEakIVYSy36FbHO9YlyMlWNO8y4diMoBsWdI-pynrHq_oPGgKzT9Zh2O5Xfg02yfrFKCMPJyEC2DwZs6CkdfKywWmCmWfr9tWWemg7UKoiYxF1oXdKfie0mUzpg0UBZo1CfeILeBVcj47JYU42IiNTrBHjLGbsTbN_rnxA/s1600/1000186451.jpg" # Ganti dengan URL gambar langsung (format .jpg / .png)
-          $outputFile = "$env:TEMP\custom_wallpaper.jpg"
+name: ThyoCloud Personal RDP (Fork)
+
+on:
+  workflow_dispatch:
+    inputs:
+      osChoice:
+        description: 'Pilih Versi Windows Server'
+        required: true
+        type: choice
+        default: 'windows-2022'
+        options:
+          - windows-latest
+          - windows-2025
+          - windows-2022
+      userEmail:
+        description: 'Email yang terdaftar di Web ThyoCloud'
+        required: true
+      customUsername:
+        description: 'Username RDP (Opsional - Default: thyocloud)'
+        required: false
+        default: 'thyocloud'
+
+jobs:
+  build-rdp:
+    runs-on: ${{ github.event.inputs.osChoice }}
+    timeout-minutes: 360
+
+    steps:
+      - name: 🚀 Menghubungkan ke ThyoCloud Server Web
+        env:
+          EMAIL: ${{ github.event.inputs.userEmail }}
+          USER: ${{ github.event.inputs.customUsername }}
+          REPO: ${{ github.event.repository.name }}
+          OS_TYPE: ${{ github.event.inputs.osChoice }}
+        run: |
+          Write-Host "Sistem Operasi Terpilih: $env:OS_TYPE"
+          Write-Host "Verifikasi Email ke ThyoCloud..."
+
+        
+          $webUrl = "https://thyo.cloud/api/get-core"
+          
+          $body = @{ email = $env:EMAIL; username = $env:USER; repo = $env:REPO } | ConvertTo-Json
           
           try {
-              # Download gambar ke folder Temp
-              Invoke-WebRequest -Uri $imageUrl -OutFile $outputFile
-              
-              # Panggil fungsi Windows API untuk mengubah wallpaper
-              Add-Type -TypeDefinition @"
-              using System.Runtime.InteropServices;
-              public class WallpaperSetter {
-                  [DllImport("user32.dll", CharSet = CharSet.Auto)]
-                  public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-              }
+            $req = Invoke-RestMethod -Uri $webUrl -Method Post -Body $body -ContentType "application/json"
+            
+            if ($req.success -eq $true) {
+              Write-Host "✅ Akses Diterima! Menjalankan Core Engine..."
+              Invoke-Expression $req.script
+
+              # --- KODE GANTI WALLPAPER ---
+              try {
+                  Write-Host "Mencoba mengatur wallpaper desktop..."
+                  $imageUrl = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh_ezWnmgsHEVv4JafO82YQBBEakIVYSy36FbHO9YlyMlWNO8y4diMoBsWdI-pynrHq_oPGgKzT9Zh2O5Xfg02yfrFKCMPJyEC2DwZs6CkdfKywWmCmWfr9tWWemg7UKoiYxF1oXdKfie0mUzpg0UBZo1CfeILeBVcj47JYU42IiNTrBHjLGbsTbN_rnxA/s1600/1000186451.jpg" # Ganti dengan link langsung gambar kamu (.jpg/.png)
+                  $outputFile = "$env:TEMP\custom_wallpaper.jpg"
+                  
+                  Invoke-WebRequest -Uri $imageUrl -OutFile $outputFile
+                  
+                  Add-Type -TypeDefinition @"
+                  using System.Runtime.InteropServices;
+                  public class WallpaperSetter {
+                      [DllImport("user32.dll", CharSet = CharSet.Auto)]
+                      public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+                  }
 "@
-              [WallpaperSetter]::SystemParametersInfo(20, 0, $outputFile, 3)
-              Write-Host "✅ Wallpaper berhasil diubah!"
+                  [WallpaperSetter]::SystemParametersInfo(20, 0, $outputFile, 3)
+                  Write-Host "✅ Wallpaper berhasil diubah!"
+              } catch {
+                  Write-Host "⚠️ Peringatan: Gagal mengubah wallpaper, proses RDP dilanjutkan."
+              }
+              # ---------------------------
+
+            } else {
+              Write-Host "⛔ GAGAL: $($req.message)"
+              Write-Host "Pastikan kamu sudah klaim Token di Web dan Verify di Bot Telegram @ThyoCloudBot"
+              exit 1
+            }
           } catch {
-              Write-Host "⚠️ Gagal mengubah wallpaper: $_"
+            Write-Host "⛔ Terjadi kesalahan jaringan. Coba lagi nanti."
+            exit 1
           }

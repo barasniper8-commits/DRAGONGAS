@@ -29,20 +29,20 @@ jobs:
     - name: Membuka Jalur TCP Tunnel dengan Pinggy
       run: |
         Start-Process -FilePath "ssh.exe" -ArgumentList "-o StrictHostKeyChecking=no -p 443 -R0:localhost:3389 a.pinggy.io" -RedirectStandardOutput "pinggy_out.log" -RedirectStandardError "pinggy_err.log" -PassThru
-        Start-Sleep -Seconds 8
+        Start-Sleep -Seconds 15
 
     - name: Menampilkan Detail Koneksi RDP
       run: |
         Start-Sleep -Seconds 5
         Write-Host "=================================================="
         Write-Host " RDP Berhasil Dibuat via Pinggy!" -ForegroundColor Green
-        Write-Host " Cek alamat host & port (format tcp://...) di bawah ini:"
+        Write-Host " Salin alamat host & port (format tcp://...) di bawah:"
         Write-Host "--------------------------------------------------"
         Get-Content pinggy_out.log -ErrorAction SilentlyContinue
         Get-Content pinggy_err.log -ErrorAction SilentlyContinue
         Write-Host "--------------------------------------------------"
         Write-Host " Username           : runneradmin"
-        Write-Host " Password           : Dr4g0n#99`$Xau (atau secret RDP_PASS)"
+        Write-Host " Password           : Dr4g0n#99`$Xau"
         Write-Host "=================================================="
 
     - name: Menjaga Sesi RDP Tetap Aktif

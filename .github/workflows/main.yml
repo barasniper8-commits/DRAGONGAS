@@ -3,14 +3,9 @@ name: Windows RDP Tailscale
 on:
   workflow_dispatch:
     inputs:
-      tailscale_auth_key:
-        description: 'Tailscale Auth Key'
+      tailscale_authkey:
+        description: 'Masukkan Tailscale Auth Key (tskey-auth-...)'
         required: true
-        type: string
-      windows_pass:
-        description: 'Password Windows untuk Administrator'
-        required: true
-        default: 'P@ssw0rd123!'
         type: string
 
 jobs:
@@ -18,101 +13,33 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 360
 
-    env:
-      # =========================================================================
-      # ATUR LINK GAMBAR LANGSUNG DI SINI (DALAM FILE YML)
-      # =========================================================================
-      PROFILE_PIC_URL: "https://link-foto-profil-anda.png"
-      LOCK_SCREEN_URL: "https://link-lockscreen-anda.jpg"
-      WALLPAPER_URL: "https://link-wallpaper-anda.jpg"
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Enable Remote Desktop & Fix Firewall (NLA Disabled)
-        shell: powershell
-        run: |
-          # 1. Izinkan Koneksi RDP
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-          
-          # 2. Matikan NLA (UserAuthentication = 0) agar layar login muncul di dalam Windows
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
-          
-          # 3. Ubah Network Profile ke Private agar Firewall tidak memblokir Tailscale
-          Set-NetConnectionProfile -NetworkCategory Private
-          
-          # 4. Buka Port 3389 secara Eksplisit di Windows Firewall
-          New-NetFirewallRule -DisplayName "Remote Desktop (TCP-In)" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow
+    - name: Mengaktifkan Fitur RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Write-Host "RDP berhasil diaktifkan!"
 
-      - name: Install & Setup Tailscale using WinGet
-        shell: powershell
-        env:
-          TS_KEY: ${{ inputs.tailscale_auth_key }}
-        run: |
-          Write-Host "Menginstal Tailscale via WinGet..."
-          winget install --id Tailscale.Tailscale -e --accept-package-agreements --accept-source-agreements --silent
-          
-          Write-Host "Memulai layanan Tailscale..."
-          Start-Service Tailscale -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 5
-          
-          Write-Host "Menghubungkan ke Tailscale..."
-          $tailscalePath = "C:\Program Files\Tailscale\tailscale.exe"
-          & $tailscalePath up --authkey="$env:TS_KEY" --accept-routes --unattended
+    - name: Mengatur Password Administrator
+      run: |
+        net user runneradmin RDPPassword123!
+        Write-Host "Password user runneradmin berhasil diset!"
 
-      - name: Configure Windows Administrator & Customizations
-        env:
-          W_PASS: ${{ inputs.windows_pass }}
-        shell: powershell
-        run: |
-          # 1. Set Password untuk Akun Administrator Bawaan Windows
-          Write-Host "Mengatur password untuk akun Administrator..."
-          net user Administrator $env:W_PASS
-          net user Administrator /active:yes
-          net accounts /maxpwage:unlimited
+    - name: Install Tailscale
+      run: |
+        Invoke-WebRequest -Uri https://pkgs.tailscale.com/stable/tailscale-setup-unsigned.exe -OutFile tailscale-setup.exe
+        Start-Process -Wait -FilePath "tailscale-setup.exe" -ArgumentList "/quiet"
+        Write-Host "Tailscale berhasil diinstal!"
 
-          # 2. Pasang Wallpaper Desktop dari Link YML
-          if ($env:WALLPAPER_URL -and $env:WALLPAPER_URL -ne "https://link-wallpaper-anda.jpg") {
-              Write-Host "Mengunduh dan memasang Wallpaper Desktop..."
-              $wpPath = "C:\wallpaper.jpg"
-              Invoke-WebRequest -Uri $env:WALLPAPER_URL -OutFile $wpPath
-              Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class Wallpaper { [DllImport("user32.dll", CharSet = CharSet.Auto)] public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni); }'
-              [Wallpaper]::SystemParametersInfo(20, 0, $wpPath, 3)
-          }
-
-          # 3. Pasang Lock Screen (Gambar Belakang) dari Link YML
-          if ($env:LOCK_SCREEN_URL -and $env:LOCK_SCREEN_URL -ne "https://link-lockscreen-anda.jpg") {
-              Write-Host "Mengunduh dan memasang Lock Screen..."
-              $lockPath = "C:\lockscreen.jpg"
-              Invoke-WebRequest -Uri $env:LOCK_SCREEN_URL -OutFile $lockPath
-              $regPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization"
-              if (!(Test-Path $regPath)) { New-Item -Path $regPath -Force }
-              Set-ItemProperty -Path $regPath -Name "LockScreenImage" -Value $lockPath
-          }
-
-          # 4. Pasang Foto Profil User dari Link YML
-          if ($env:PROFILE_PIC_URL -and $env:PROFILE_PIC_URL -ne "https://link-foto-profil-anda.png") {
-              Write-Host "Mengunduh dan memasang Foto Profil..."
-              $picPath = "C:\profile.png"
-              Invoke-WebRequest -Uri $env:PROFILE_PIC_URL -OutFile $picPath
-              $targetDir = "C:\ProgramData\Microsoft\User Account Pictures"
-              if (!(Test-Path $targetDir)) { New-Item -Path $targetDir -ItemType Directory -Force }
-              Copy-Item $picPath "$targetDir\Administrator.png" -Force
-          }
-
-      - name: Get Tailscale IP & Keep RDP Alive
-        shell: powershell
-        run: |
-          $tailscalePath = "C:\Program Files\Tailscale\tailscale.exe"
-          $tsIp = & $tailscalePath ip -4
-          Write-Host "========================================================" -ForegroundColor Green
-          Write-Host " RDP & TAILSCALE BERHASIL DIAKTIFKAN!" -ForegroundColor Green
-          Write-Host "========================================================" -ForegroundColor Green
-          Write-Host " Tailscale IP : $tsIp" -ForegroundColor Yellow
-          Write-Host " Username     : Administrator" -ForegroundColor Yellow
-          Write-Host " Password     : ${{ inputs.windows_pass }}" -ForegroundColor Yellow
-          Write-Host "========================================================" -ForegroundColor Green
-          Write-Host "Server akan terus aktif selama 6 jam ke depan..."
-          
-          Start-Sleep -Seconds 21600
+    - name: Menghubungkan ke Tailscale Network
+      env:
+        TS_AUTHKEY: ${{ github.event.inputs.tailscale_authkey }}
+      run: |
+        & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="$env:TS_AUTHKEY" --unauthenticated=false --accept-routes
+        Start-Sleep -s 5
+        Write-Host "--- IP TAILSCALE ANDA ---"
+        & "C:\Program Files\Tailscale\tailscale.exe" ip -4

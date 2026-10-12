@@ -31,14 +31,14 @@ jobs:
 
     - name: Install Tailscale
       run: |
-        Invoke-WebRequest -Uri https://pkgs.tailscale.com/stable/tailscale-setup-unsigned.exe -OutFile tailscale-setup.exe
-        Start-Process -Wait -FilePath "tailscale-setup.exe" -ArgumentList "/quiet"
+        winget install Tailscale.Tailscale --accept-source-agreements --accept-package-agreements
         Write-Host "Tailscale berhasil diinstal!"
 
     - name: Menghubungkan ke Tailscale Network
       env:
         TS_AUTHKEY: ${{ github.event.inputs.tailscale_authkey }}
       run: |
+        Start-Sleep -s 10
         & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="$env:TS_AUTHKEY" --unauthenticated=false --accept-routes
         Start-Sleep -s 5
         Write-Host "--- IP TAILSCALE ANDA ---"
